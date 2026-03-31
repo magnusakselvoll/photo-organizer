@@ -17,6 +17,9 @@ Follows Clean Architecture, inspired by [photo-booth-take-two](https://github.co
 Domain → Application → Infrastructure → Server
                                  ↑
                             PhotoOrganizer.Web (React)
+
+Crawler (independent process, any stack)
+  └── communicates via sidecar files + SQLite DB
 ```
 
 ### Layers
@@ -28,26 +31,26 @@ Domain → Application → Infrastructure → Server
 | `PhotoOrganizer.Infrastructure` | File system access, sidecar read/write, indexing, duplicate detection |
 | `PhotoOrganizer.Server` | ASP.NET Core host, API endpoints, middleware, static file serving |
 | `PhotoOrganizer.Web` | React + TypeScript frontend, Vite build |
+| `Crawler` | Independent CLI process — discovers photos, runs processing pipeline, writes sidecars |
 
 ### Key Interfaces (Domain)
 
 - `IPhotoRepository` — list, find, serve photos
-- `IFolderRepository` — enumerate and configure source folders
+- `IFolderRepository` — discover and read source folders (via `_folder.json` sidecars)
 - `ISidecardStore` — read/write sidecar metadata
 - `IDuplicateDetector` — identify duplicate photos across folders
 
 ## 3. Source Folders
 
-Each source folder is configured with:
+Folders are set up via the crawler's `init` command (see §6.2) and discovered by the server by scanning `ScanRoots` for `_folder.json` sidecar files. There is no central folder registry.
+
+Each source folder is described by its `_folder.json` sidecar:
 
 | Property | Description |
 |----------|-------------|
-| `path` | Absolute path on disk or UNC path to NAS |
-| `type` | `originals` or `edits` |
 | `label` | Human-readable name |
+| `type` | `originals` or `edits` |
 | `enabled` | Whether to include in indexing |
-
-Folder configuration is stored in a folder-level sidecar file (see §5).
 
 ## 4. Photo Model
 
@@ -87,24 +90,142 @@ One per photo file, same directory.
 {
   "capturedAt": "2023-07-14T18:30:00+02:00",
   "duplicateGroupId": "550e8400-e29b-41d4-a716-446655440000",
-  "tags": ["holiday", "beach"]
+  "tags": ["holiday", "beach"],
+  "crawlSteps": {
+    "metadata": 1,
+    "duplicates": 1
+  }
 }
 ```
 
+The `crawlSteps` map records which processing step versions have run on this file, enabling selective recrawling.
+
 Sidecar files are created lazily on first write. Absence means default/unknown values.
 
-## 6. Duplicate Detection
+## 6. Crawler
 
-Primary signal: file name (without extension and without known edit suffixes like `_edit`, `_retouched`, `-hdr`).
+### 6.1 Overview
 
-Algorithm:
-1. Index all photos across all configured folders
-2. Normalise file name: strip extension, strip known edit suffixes, lowercase
+The crawler is an independent CLI process (stack-agnostic — could be Python, .NET, or any language). It:
+
+- Discovers photos in source folders and runs them through a processing pipeline
+- Writes metadata results to per-photo sidecar files
+- Tracks operational state (file hashes, step versions) in a local SQLite database
+- Runs periodically for incremental updates and can be triggered manually for full or targeted recrawls
+- Is the sole mechanism for adding new source folders
+
+### 6.2 Init Mode (Folder Setup)
+
+```
+crawler init <folder-path> [--label "..."] [--type originals|edits] [--enabled true|false]
+```
+
+- Prompts interactively for any parameters not supplied as CLI arguments
+- Writes `_folder.json` to the folder root
+- Immediately runs a full crawl of that folder
+- The server discovers the folder automatically by scanning `ScanRoots` for `_folder.json` files
+
+### 6.3 Processing Pipeline
+
+A crawl executes an ordered list of **processing steps** over discovered photos.
+
+Each step declares:
+- `name` — unique identifier (e.g. `"metadata"`, `"duplicates"`, `"faces"`)
+- `version` — integer; incrementing triggers a targeted recrawl of that step
+- `dependsOn` — optional list of step names that must have run first
+
+Steps are executed in dependency order. After each step completes on a file, the step name and version are written to the file's sidecar under `crawlSteps`.
+
+**Built-in steps:**
+
+| Step | Version | Depends on | Description |
+|------|---------|------------|-------------|
+| `metadata` | 1 | — | Extract EXIF data (capturedAt, dimensions, GPS), write to sidecar |
+| `duplicates` | 1 | `metadata` | Group photos by normalised filename, assign `duplicateGroupId`, mark preferred version |
+
+**Duplicate detection algorithm** (within the `duplicates` step):
+1. Index all photos across all enabled folders
+2. Normalise file name: strip extension, strip known edit suffixes (`_edit`, `_retouched`, `-hdr`), lowercase
 3. Group photos sharing the same normalised name → one `duplicateGroupId`
 4. Within a group, prefer `edits` folder type over `originals`
-5. Store `duplicateGroupId` in each photo's sidecar
+5. Store `duplicateGroupId` and `isPreferred` in each photo's sidecar
 
-The preferred photo in each group is the one shown in slideshows and default browsing.
+### 6.4 Crawl Modes
+
+| Mode | Trigger | What it does |
+|------|---------|--------------|
+| **Init** | `crawler init <path>` | Write `_folder.json`, then full-crawl that folder |
+| **Full** | `crawler run --mode full` | Scan all folders, run all steps on all files |
+| **Incremental** | `crawler run` (default) / scheduled | Scan for new/changed/deleted files; run all steps on changed files |
+| **Targeted** | `crawler run --mode targeted --step <name>` | Run a specific step (and its dependents) on all files where the step hasn't run or has an older version |
+
+### 6.5 Change Detection (Tiered)
+
+For each file encountered during a crawl:
+1. Compare file's last-modified timestamp against the value stored in the crawler DB
+2. If mod-time is unchanged → skip (no reprocessing needed)
+3. If mod-time changed → compute SHA-256 hash and compare against stored hash
+4. If hash differs → file has changed → re-run all steps
+5. If hash matches → spurious mod-time change (e.g. backup restore) → update stored mod-time only, skip processing
+
+### 6.6 Crawler Database (SQLite)
+
+The crawler maintains a local SQLite database for operational state. This is separate from the sidecar files (which are the source-of-truth metadata) and from the server's domain.
+
+**`crawled_files`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-increment |
+| `file_path` | TEXT UNIQUE | Absolute path |
+| `file_hash` | TEXT | SHA-256 hex |
+| `modified_at` | TEXT | ISO 8601 last-modified timestamp |
+| `first_seen_at` | TEXT | When crawler first discovered this file |
+| `last_crawled_at` | TEXT | Timestamp of last successful crawl pass |
+| `deleted` | INTEGER | 1 if file was not found on last scan |
+
+**`step_runs`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `file_id` | INTEGER FK → crawled_files | |
+| `step_name` | TEXT | Processing step name |
+| `step_version` | INTEGER | Version of the step that ran |
+| `completed_at` | TEXT | When this step completed for this file |
+| PK | | `(file_id, step_name)` |
+
+**`crawl_log`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-increment |
+| `started_at` | TEXT | Crawl start time |
+| `completed_at` | TEXT | Crawl end time (NULL if in progress) |
+| `mode` | TEXT | `full` / `incremental` / `targeted` |
+| `target_step` | TEXT | Step name if targeted mode (NULL otherwise) |
+| `files_scanned` | INTEGER | Total files found |
+| `files_processed` | INTEGER | Files that needed processing |
+| `files_errored` | INTEGER | Files that failed processing |
+
+### 6.7 Deleted File Handling
+
+- If a previously-indexed file is no longer on disk, mark it as deleted in the DB (`deleted = 1`)
+- The corresponding sidecar is left in place (it may still be valid if the file was moved)
+- Orphaned sidecar cleanup is opt-in via configuration
+
+### 6.8 Configuration
+
+Crawler config (standalone file, format to be determined by implementation):
+
+```json
+{
+  "Crawler": {
+    "DatabasePath": "./crawler.db",
+    "ScheduleIntervalMinutes": 60,
+    "OrphanedSidecarCleanup": false
+  }
+}
+```
 
 ## 7. API Endpoints
 
@@ -112,12 +233,14 @@ Base path: `/api`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/folders` | List configured source folders |
+| GET | `/folders` | List discovered source folders |
 | GET | `/photos` | List photos (supports filtering, pagination) |
 | GET | `/photos/{id}` | Get photo metadata |
 | GET | `/photos/{id}/image` | Serve the photo file |
 | GET | `/slideshow/next` | Next photo for slideshow (respects duplicate preference) |
 | GET | `/config` | Runtime configuration |
+| POST | `/crawler/start` | Trigger a crawl (`{ "mode": "full\|incremental\|targeted", "step": "..." }`) |
+| GET | `/crawler/status` | Current crawl state (idle/running, progress, last run info) |
 
 ### Query Parameters for `/photos`
 
@@ -152,9 +275,9 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
 ```json
 {
   "PhotoOrganizer": {
-    "SourceFolders": [
-      { "path": "D:\\Photos\\Originals", "type": "originals", "label": "Camera Roll", "enabled": true },
-      { "path": "\\\\NAS\\Photos\\Edits", "type": "edits", "label": "Lightroom Exports", "enabled": true }
+    "ScanRoots": [
+      "D:\\Photos",
+      "\\\\NAS\\Photos"
     ],
     "Slideshow": {
       "IntervalSeconds": 8,
@@ -163,6 +286,8 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
   }
 }
 ```
+
+`ScanRoots` are paths the server scans recursively for `_folder.json` files to discover managed source folders.
 
 ## 11. Non-Goals (for now)
 
@@ -176,7 +301,8 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
 
 The architecture is intentionally open to:
 
-- **Auto-tagging** — plug in a tag provider behind `ITaggingService`
-- **GPS / location** — EXIF extraction, reverse geocoding
-- **Face recognition** — person clustering behind `IFaceRecognitionService`
+- **Auto-tagging** — implement an `autotag` crawl step; run `crawler run --mode targeted --step autotag` to tag all photos
+- **GPS / location** — EXIF extraction (in `metadata` step), reverse geocoding as a separate `location` step
+- **Face recognition** — implement a `faces` step with `dependsOn: ["metadata"]`; targeted recrawl adds faces to existing photos without reprocessing everything
+- **Additional crawl steps** — any future enrichment follows the same pattern: new step + `crawler run --mode targeted --step <name>`
 - **Mobile app** — the REST API is the contract; any client can consume it

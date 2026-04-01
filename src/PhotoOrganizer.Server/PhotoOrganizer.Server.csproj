@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PhotoOrganizer.Domain\PhotoOrganizer.Domain.csproj" />
+    <ProjectReference Include="..\PhotoOrganizer.Application\PhotoOrganizer.Application.csproj" />
+    <ProjectReference Include="..\PhotoOrganizer.Infrastructure\PhotoOrganizer.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\PhotoOrganizer.Application\PhotoOrganizer.Application.csproj" />
+    <ProjectReference Include="..\..\src\PhotoOrganizer.Domain\PhotoOrganizer.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

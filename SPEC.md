@@ -266,7 +266,7 @@ Base path: `/api`
 - pnpm for package management
 - Routes: `/` browse grid, `/slideshow` full-screen slideshow, `/photo/:id` detail view
 - API client in `src/api/client.ts`; shared types in `src/api/types.ts`
-- Development proxy: frontend at `:5173`, backend at `:5192`
+- Development proxy: frontend at `:6173`, backend at `:6192`
 
 ## 10. Configuration
 

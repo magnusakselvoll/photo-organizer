@@ -12,7 +12,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Namespace prefix**: `PhotoOrganizer.*`
 - **Backend**: .NET 10, ASP.NET Core, C#
 - **Frontend**: React + TypeScript, Vite, pnpm
-- **Ports (dev)**: Backend `:5192`, Frontend `:5173`
+- **Ports (dev)**: Backend `:6192`, Frontend `:6173`
 
 ## Patterns to Follow
 
@@ -96,7 +96,7 @@ dotnet run --project src/PhotoOrganizer.Server         # Run the backend server
 # Frontend (run inside src/PhotoOrganizer.Web)
 pnpm install                                           # Install dependencies
 pnpm run build                                         # Build to wwwroot (required before running server)
-pnpm run dev                                           # Dev server with hot reload (port 5173)
+pnpm run dev                                           # Dev server with hot reload (port 6173)
 pnpm run lint                                          # Lint frontend code
 pnpm run test                                          # Run frontend tests
 ```

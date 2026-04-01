@@ -4,9 +4,11 @@
     <Project Path="src/PhotoOrganizer.Application/PhotoOrganizer.Application.csproj" />
     <Project Path="src/PhotoOrganizer.Infrastructure/PhotoOrganizer.Infrastructure.csproj" />
     <Project Path="src/PhotoOrganizer.Server/PhotoOrganizer.Server.csproj" />
+    <Project Path="src/PhotoOrganizer.Crawler/PhotoOrganizer.Crawler.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PhotoOrganizer.Application.Tests/PhotoOrganizer.Application.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Infrastructure.Tests/PhotoOrganizer.Infrastructure.Tests.csproj" />
+    <Project Path="tests/PhotoOrganizer.Crawler.Tests/PhotoOrganizer.Crawler.Tests.csproj" />
   </Folder>
 </Solution>

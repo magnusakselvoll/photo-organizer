@@ -1,5 +1,11 @@
 <Project>
   <ItemGroup>
+    <!-- Crawler -->
+    <PackageVersion Include="System.CommandLine" Version="3.0.0-preview.2.26159.112" />
+    <PackageVersion Include="MetadataExtractor" Version="2.9.2" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.3" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- Web API -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.3" />

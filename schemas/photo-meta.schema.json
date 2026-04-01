@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/magnusakselvoll/photo-organizer/schemas/photo-meta.schema.json",
+  "title": "Photo Metadata Sidecar",
+  "description": "Per-photo metadata sidecar file. Placed alongside each photo as <photoname>.meta.json. Created lazily on first write; absence means all fields take their default/unknown values.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version. Starts at 1, incremented on any schema change."
+    },
+    "capturedAt": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "When the photo was taken, from EXIF or file creation time. ISO 8601. Null if unknown."
+    },
+    "duplicateGroupId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "UUID linking photos that are duplicates of the same logical image. Null if not part of a group."
+    },
+    "isPreferred": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this is the display-preferred version within its duplicate group."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Manual or auto-generated tags."
+    },
+    "crawlSteps": {
+      "type": "object",
+      "description": "Records which processing steps have run on this file and when. Keys are step names (e.g. 'metadata', 'duplicates').",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version of the step that produced this result."
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When this step completed for this file. ISO 8601."
+          }
+        },
+        "required": ["version", "completedAt"]
+      },
+      "default": {}
+    }
+  },
+  "required": ["version"]
+}

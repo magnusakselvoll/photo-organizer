@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/magnusakselvoll/photo-organizer/schemas/folder.schema.json",
+  "title": "Folder Sidecar",
+  "description": "Describes a photo source folder. Placed at the root of each source folder as _folder.json.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version. Starts at 1, incremented on any schema change."
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable name for this folder."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["originals", "edits", "mixed"],
+      "default": "mixed",
+      "description": "Content type: originals (unedited), edits (processed versions), or mixed (both)."
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether to include this folder in indexing."
+    }
+  },
+  "required": ["version", "label", "enabled"]
+}

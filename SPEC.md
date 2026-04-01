@@ -70,17 +70,29 @@ Photo
 
 Metadata lives in files co-located with the photos. This keeps everything portable and avoids a central database as a single point of failure.
 
+Formal JSON Schema definitions for both sidecar formats are in `schemas/`. The examples below are illustrative; the schemas are the canonical reference.
+
+Sidecar files must be written in a backwards-compatible way: new optional fields may be added freely, but existing fields must not be removed or renamed. Readers must tolerate unknown fields without failing.
+
 ### Folder-level sidecar: `_folder.json`
 
 Placed in the root of each source folder.
 
 ```json
 {
+  "version": 1,
   "label": "Holiday 2023",
-  "type": "edits",
+  "type": "mixed",
   "enabled": true
 }
 ```
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `version` | Yes | integer | Schema version, starts at 1 |
+| `label` | Yes | string | Human-readable folder name |
+| `enabled` | Yes | boolean | Whether to include in indexing |
+| `type` | No | `originals` \| `edits` \| `mixed` | Content type; defaults to `mixed` |
 
 ### File-level sidecar: `<photoname>.meta.json`
 
@@ -88,17 +100,19 @@ One per photo file, same directory.
 
 ```json
 {
+  "version": 1,
   "capturedAt": "2023-07-14T18:30:00+02:00",
   "duplicateGroupId": "550e8400-e29b-41d4-a716-446655440000",
+  "isPreferred": true,
   "tags": ["holiday", "beach"],
   "crawlSteps": {
-    "metadata": 1,
-    "duplicates": 1
+    "metadata": { "version": 1, "completedAt": "2025-03-15T10:00:00Z" },
+    "duplicates": { "version": 1, "completedAt": "2025-03-15T10:00:05Z" }
   }
 }
 ```
 
-The `crawlSteps` map records which processing step versions have run on this file, enabling selective recrawling.
+The `crawlSteps` map records which processing step versions have run on this file and when they completed, enabling selective recrawling. The `version` field is required; all other fields are optional.
 
 Sidecar files are created lazily on first write. Absence means default/unknown values.
 
@@ -117,7 +131,7 @@ The crawler is an independent CLI process (stack-agnostic — could be Python, .
 ### 6.2 Init Mode (Folder Setup)
 
 ```
-crawler init <folder-path> [--label "..."] [--type originals|edits] [--enabled true|false]
+crawler init <folder-path> [--label "..."] [--type originals|edits|mixed] [--enabled true|false]
 ```
 
 - Prompts interactively for any parameters not supplied as CLI arguments
@@ -170,7 +184,14 @@ For each file encountered during a crawl:
 
 ### 6.6 Crawler Database (SQLite)
 
-The crawler maintains a local SQLite database for operational state. This is separate from the sidecar files (which are the source-of-truth metadata) and from the server's domain.
+The crawler maintains a local SQLite database for operational state. This is separate from the sidecar files (which are the source-of-truth metadata) and from the server's domain. The canonical DDL is in `schemas/crawler.sql`.
+
+**`schema_version`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `version` | INTEGER | Current DDL version (starts at 1) |
+| `applied_at` | TEXT | When this version was applied |
 
 **`crawled_files`**
 
@@ -192,6 +213,8 @@ The crawler maintains a local SQLite database for operational state. This is sep
 | `step_name` | TEXT | Processing step name |
 | `step_version` | INTEGER | Version of the step that ran |
 | `completed_at` | TEXT | When this step completed for this file |
+| `status` | TEXT | `completed` or `failed` |
+| `error_message` | TEXT | Error details if status = `failed` (NULL otherwise) |
 | PK | | `(file_id, step_name)` |
 
 **`crawl_log`**
@@ -203,9 +226,11 @@ The crawler maintains a local SQLite database for operational state. This is sep
 | `completed_at` | TEXT | Crawl end time (NULL if in progress) |
 | `mode` | TEXT | `full` / `incremental` / `targeted` |
 | `target_step` | TEXT | Step name if targeted mode (NULL otherwise) |
+| `status` | TEXT | `running` / `completed` / `failed` |
 | `files_scanned` | INTEGER | Total files found |
 | `files_processed` | INTEGER | Files that needed processing |
 | `files_errored` | INTEGER | Files that failed processing |
+| `error_message` | TEXT | Top-level crawl error, if any |
 
 ### 6.7 Deleted File Handling
 

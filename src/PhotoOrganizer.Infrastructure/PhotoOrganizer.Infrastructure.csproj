@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PhotoOrganizer.Domain\PhotoOrganizer.Domain.csproj" />
+    <ProjectReference Include="..\PhotoOrganizer.Application\PhotoOrganizer.Application.csproj" />
+  </ItemGroup>
+
+</Project>

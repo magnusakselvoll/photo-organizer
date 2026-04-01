@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PhotoOrganizer.Domain/PhotoOrganizer.Domain.csproj" />
+    <Project Path="src/PhotoOrganizer.Application/PhotoOrganizer.Application.csproj" />
+    <Project Path="src/PhotoOrganizer.Infrastructure/PhotoOrganizer.Infrastructure.csproj" />
+    <Project Path="src/PhotoOrganizer.Server/PhotoOrganizer.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PhotoOrganizer.Application.Tests/PhotoOrganizer.Application.Tests.csproj" />
+    <Project Path="tests/PhotoOrganizer.Infrastructure.Tests/PhotoOrganizer.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

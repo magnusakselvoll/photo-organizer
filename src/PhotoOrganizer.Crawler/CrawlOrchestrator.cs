@@ -15,6 +15,7 @@ public sealed class CrawlOrchestrator
     private readonly IFileDiscoverer _discoverer;
     private readonly ChangeDetector _changeDetector;
     private readonly PipelineRunner _pipeline;
+    private readonly IReadOnlyList<IBatchProcessingStep> _batchSteps;
 
     public CrawlOrchestrator(
         ICrawledFileRepository fileRepo,
@@ -22,7 +23,8 @@ public sealed class CrawlOrchestrator
         ISidecarStore sidecarStore,
         IFileDiscoverer discoverer,
         ChangeDetector changeDetector,
-        PipelineRunner pipeline)
+        PipelineRunner pipeline,
+        IReadOnlyList<IBatchProcessingStep>? batchSteps = null)
     {
         _fileRepo = fileRepo;
         _logRepo = logRepo;
@@ -30,6 +32,7 @@ public sealed class CrawlOrchestrator
         _discoverer = discoverer;
         _changeDetector = changeDetector;
         _pipeline = pipeline;
+        _batchSteps = batchSteps ?? [];
     }
 
     public async Task RunAsync(IReadOnlyList<string> folderPaths, bool fullMode)
@@ -108,6 +111,22 @@ public sealed class CrawlOrchestrator
                 }
             }
 
+            // Run batch steps (e.g. duplicate detection) across all discovered files
+            if (_batchSteps.Count > 0)
+            {
+                var allPaths = allDiscoveredPaths.ToList();
+                var batchContext = new BatchProcessingContext
+                {
+                    FilePaths = allPaths,
+                    SidecarStore = _sidecarStore
+                };
+                foreach (var batchStep in _batchSteps)
+                {
+                    Log.Information("Running batch step {StepName}", batchStep.Name);
+                    await batchStep.ExecuteAsync(batchContext);
+                }
+            }
+
             // Detect deletions
             var activeFiles = await _fileRepo.GetActiveFilesAsync();
             var deletedIds = activeFiles
@@ -129,6 +148,61 @@ public sealed class CrawlOrchestrator
         {
             Log.Error(ex, "Crawl failed");
             await _logRepo.CompleteCrawlAsync(crawlId, "failed", filesScanned, filesProcessed, filesErrored, ex.Message);
+            throw;
+        }
+    }
+
+    public async Task RunTargetedAsync(IReadOnlyList<string> folderPaths, string stepName)
+    {
+        var crawlId = await _logRepo.StartCrawlAsync("targeted", stepName);
+        var filesScanned = 0;
+
+        try
+        {
+            var batchStep = _batchSteps.FirstOrDefault(s =>
+                string.Equals(s.Name, stepName, StringComparison.OrdinalIgnoreCase));
+
+            if (batchStep is null)
+            {
+                Log.Error("Unknown targeted step: {StepName}", stepName);
+                await _logRepo.CompleteCrawlAsync(crawlId, "failed", 0, 0, 0, $"Unknown step: {stepName}");
+                return;
+            }
+
+            var allDiscoveredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var folderPath in folderPaths)
+            {
+                var folderSidecar = await _sidecarStore.ReadFolderSidecarAsync(folderPath);
+                if (folderSidecar is null || !folderSidecar.Enabled)
+                    continue;
+
+                var discovered = _discoverer.Discover(folderPath);
+                filesScanned += discovered.Count;
+
+                foreach (var file in discovered)
+                {
+                    allDiscoveredPaths.Add(file.FilePath);
+                    await _fileRepo.UpsertAsync(file.FilePath, null, file.LastModified);
+                }
+            }
+
+            var batchContext = new BatchProcessingContext
+            {
+                FilePaths = allDiscoveredPaths.ToList(),
+                SidecarStore = _sidecarStore
+            };
+
+            Log.Information("Running targeted batch step {StepName} on {Count} files", stepName, allDiscoveredPaths.Count);
+            await batchStep.ExecuteAsync(batchContext);
+
+            await _logRepo.CompleteCrawlAsync(crawlId, "completed", filesScanned, 0, 0);
+            Log.Information("Targeted crawl ({StepName}) completed: {Scanned} files scanned", stepName, filesScanned);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Targeted crawl failed");
+            await _logRepo.CompleteCrawlAsync(crawlId, "failed", filesScanned, 0, 0, ex.Message);
             throw;
         }
     }

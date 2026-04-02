@@ -37,16 +37,19 @@ try
     });
 
     // --- run command ---
-    var runModeOpt = new Option<string>("--mode") { Description = "Crawl mode: full or incremental", DefaultValueFactory = _ => "incremental" };
+    var runModeOpt = new Option<string>("--mode") { Description = "Crawl mode: full, incremental, or targeted", DefaultValueFactory = _ => "incremental" };
+    var runStepOpt = new Option<string?>("--step") { Description = "Step name to run (required when mode is targeted)" };
     var runConfigOpt = new Option<string?>("--config") { Description = "Path to crawler-config.json" };
 
     var runCommand = new Command("run", "Run the crawler over all configured scan roots");
     runCommand.Add(runModeOpt);
+    runCommand.Add(runStepOpt);
     runCommand.Add(runConfigOpt);
     runCommand.SetAction(async (parseResult, ct) =>
     {
         return await RunCommand.RunAsync(
             parseResult.GetValue(runModeOpt)!,
+            parseResult.GetValue(runStepOpt),
             parseResult.GetValue(runConfigOpt));
     });
 

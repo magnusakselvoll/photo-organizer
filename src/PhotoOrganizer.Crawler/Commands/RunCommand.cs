@@ -4,8 +4,14 @@ namespace PhotoOrganizer.Crawler.Commands;
 
 public static class RunCommand
 {
-    public static async Task<int> RunAsync(string mode, string? configPath)
+    public static async Task<int> RunAsync(string mode, string? step, string? configPath)
     {
+        if (string.Equals(mode, "targeted", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(step))
+        {
+            Log.Error("--step is required when --mode is targeted");
+            return 1;
+        }
+
         var config = await ConfigLoader.LoadAsync(configPath);
 
         if (config.ScanRoots.Count == 0)
@@ -25,8 +31,17 @@ public static class RunCommand
         }
 
         using var services = CrawlerServices.Build(config);
-        var fullMode = string.Equals(mode, "full", StringComparison.OrdinalIgnoreCase);
-        await services.Orchestrator.RunAsync(enabledRoots, fullMode);
+
+        if (string.Equals(mode, "targeted", StringComparison.OrdinalIgnoreCase))
+        {
+            await services.Orchestrator.RunTargetedAsync(enabledRoots, step!);
+        }
+        else
+        {
+            var fullMode = string.Equals(mode, "full", StringComparison.OrdinalIgnoreCase);
+            await services.Orchestrator.RunAsync(enabledRoots, fullMode);
+        }
+
         return 0;
     }
 }

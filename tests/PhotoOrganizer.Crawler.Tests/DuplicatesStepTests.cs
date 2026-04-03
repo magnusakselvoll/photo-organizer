@@ -42,6 +42,58 @@ public class DuplicatesStepTests
         Assert.AreEqual("photo_edit", DuplicatesStep.NormalizeName("/photos/photo_edit_edit.jpg"));
     }
 
+    [TestMethod]
+    [DataRow("/photos/photo copy.jpg", "photo")]
+    [DataRow("/photos/photo copy 2.jpg", "photo")]
+    [DataRow("/photos/photo copy 37.jpg", "photo")]
+    [DataRow("/photos/photo COPY.jpg", "photo")]
+    public void NormalizeName_StripsMacOsCopySuffix(string filePath, string expected)
+    {
+        Assert.AreEqual(expected, DuplicatesStep.NormalizeName(filePath));
+    }
+
+    [TestMethod]
+    [DataRow("/photos/20260405_photo.jpg", "photo")]
+    [DataRow("/photos/20260405-photo.jpg", "photo")]
+    [DataRow("/photos/20260405photo.jpg", "photo")]
+    [DataRow("/photos/20260405_123456_photo.jpg", "photo")]
+    [DataRow("/photos/20260405123456_photo.jpg", "photo")]
+    [DataRow("/photos/20260405123456photo.jpg", "photo")]
+    public void NormalizeName_StripsDatePrefix(string filePath, string expected)
+    {
+        Assert.AreEqual(expected, DuplicatesStep.NormalizeName(filePath));
+    }
+
+    [TestMethod]
+    public void NormalizeName_DatePrefixAndEditSuffix_BothStripped()
+    {
+        Assert.AreEqual("photo", DuplicatesStep.NormalizeName("/photos/20260405_photo_edit.jpg"));
+    }
+
+    [TestMethod]
+    public void NormalizeName_CopySuffixAndEditSuffix_BothStripped()
+    {
+        Assert.AreEqual("photo", DuplicatesStep.NormalizeName("/photos/photo_edit copy 2.jpg"));
+    }
+
+    [TestMethod]
+    public void NormalizeName_MacOsCopyMatchesOriginal()
+    {
+        // The user's real-world case
+        var original = DuplicatesStep.NormalizeName("/photos/3423523F-05E6-44D9-93B4-26EDDDC653EC_1_105_c.jpeg");
+        var copy     = DuplicatesStep.NormalizeName("/photos/3423523F-05E6-44D9-93B4-26EDDDC653EC_1_105_c copy.jpeg");
+        Assert.AreEqual(original, copy);
+    }
+
+    [TestMethod]
+    public void NormalizeName_DatePrefixedMatchesOriginal()
+    {
+        // The user's real-world case
+        var original = DuplicatesStep.NormalizeName("/photos/photo123.jpg");
+        var dated    = DuplicatesStep.NormalizeName("/photos/20260405_photo123.jpg");
+        Assert.AreEqual(original, dated);
+    }
+
     // ---- Grouping ----
 
     [TestMethod]

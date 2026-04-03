@@ -1,13 +1,26 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using PhotoOrganizer.Crawler.Pipeline;
 using PhotoOrganizer.Domain.Models;
 using Serilog;
 
 namespace PhotoOrganizer.Crawler.Steps;
 
-public sealed class DuplicatesStep : IBatchProcessingStep
+public sealed partial class DuplicatesStep : IBatchProcessingStep
 {
+    // Leading date or timestamp prefix, e.g.:
+    //   20260405_  20260405-  20260405  (YYYYMMDD / DDMMYYYY / any 8-digit date)
+    //   20260405_123456_  20260405123456  (with time component)
+    // Matches 8 digits optionally followed by sep+6 digits (time), or 14 digits,
+    // then an optional trailing separator before the real name.
+    [GeneratedRegex(@"^(\d{8}[_\-]\d{6}|\d{14}|\d{8})[_\-]?", RegexOptions.None)]
+    private static partial Regex DatePrefixPattern();
+
+    // macOS "copy" suffix: " copy", " copy 2", " copy 37", etc.
+    [GeneratedRegex(@"\s+copy(\s+\d+)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex CopySuffixPattern();
+
     // Edit suffixes to strip, ordered longest-first to avoid partial matches.
     private static readonly string[] EditSuffixes =
     [
@@ -103,14 +116,25 @@ public sealed class DuplicatesStep : IBatchProcessingStep
     public static string NormalizeName(string filePath)
     {
         var name = Path.GetFileNameWithoutExtension(filePath);
+
+        // 1. Strip leading date/timestamp prefix
+        var dateMatch = DatePrefixPattern().Match(name);
+        if (dateMatch.Success && dateMatch.Length < name.Length)
+            name = name[dateMatch.Length..];
+
+        // 2. Strip trailing macOS copy suffix (" copy", " copy 2", ...)
+        name = CopySuffixPattern().Replace(name, string.Empty);
+
+        // 3. Strip at most one trailing edit suffix
         foreach (var suffix in EditSuffixes)
         {
             if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
             {
                 name = name[..^suffix.Length];
-                break; // strip at most one suffix
+                break;
             }
         }
+
         return name.ToLowerInvariant();
     }
 

@@ -161,7 +161,8 @@ public class DuplicatesStepTests
         var context = new BatchProcessingContext
         {
             FilePaths = ["/originals/photo.jpg", "/edits/photo.jpg"],
-            SidecarStore = store
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue
         };
 
         await step.ExecuteAsync(context);
@@ -171,21 +172,23 @@ public class DuplicatesStepTests
     }
 
     [TestMethod]
-    public async Task WithinSameType_MostRecentCapturedAtIsPreferred()
+    public async Task WithinSameType_MostRecentlyModifiedIsPreferred()
     {
         var store = new InMemorySidecarStore();
         store.FolderSidecars["/photos"] = new FolderSidecar { Label = "Photos", Type = "originals", Enabled = true };
 
-        var older = new PhotoMetaSidecar { CapturedAt = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero) };
-        var newer = new PhotoMetaSidecar { CapturedAt = new DateTimeOffset(2023, 6, 15, 0, 0, 0, TimeSpan.Zero) };
-        store.Existing["/photos/photo.jpg"] = older;
-        store.Existing["/photos/photo_edit.jpg"] = newer;
+        var modTimes = new Dictionary<string, DateTime>
+        {
+            ["/photos/photo.jpg"]      = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ["/photos/photo_edit.jpg"] = new DateTime(2023, 6, 15, 0, 0, 0, DateTimeKind.Utc),
+        };
 
         var step = new DuplicatesStep();
         var context = new BatchProcessingContext
         {
             FilePaths = ["/photos/photo.jpg", "/photos/photo_edit.jpg"],
-            SidecarStore = store
+            SidecarStore = store,
+            GetLastModified = path => modTimes.GetValueOrDefault(path, DateTime.MinValue)
         };
 
         await step.ExecuteAsync(context);
@@ -197,19 +200,16 @@ public class DuplicatesStepTests
     [TestMethod]
     public async Task WithinSameType_TieBreakAlphabetical()
     {
-        // photo.jpg and photo_edit.jpg both normalize to "photo", same capturedAt → alphabetical tiebreak
+        // photo.jpg and photo_edit.jpg both normalize to "photo", same mod time → alphabetical tiebreak
         var store = new InMemorySidecarStore();
         store.FolderSidecars["/photos"] = new FolderSidecar { Label = "Photos", Type = "originals", Enabled = true };
-
-        var capturedAt = new DateTimeOffset(2023, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        store.Existing["/photos/photo.jpg"] = new PhotoMetaSidecar { CapturedAt = capturedAt };
-        store.Existing["/photos/photo_edit.jpg"] = new PhotoMetaSidecar { CapturedAt = capturedAt };
 
         var step = new DuplicatesStep();
         var context = new BatchProcessingContext
         {
             FilePaths = ["/photos/photo_edit.jpg", "/photos/photo.jpg"],
-            SidecarStore = store
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue  // tie on mod time → alphabetical
         };
 
         await step.ExecuteAsync(context);

@@ -18,6 +18,7 @@ try
     var initLabelOpt = new Option<string>("--label") { Description = "Human-readable label for the folder", Required = true };
     var initTypeOpt = new Option<string>("--type") { Description = "Folder type: originals, edits, or mixed", DefaultValueFactory = _ => "mixed" };
     var initEnabledOpt = new Option<bool>("--enabled") { Description = "Whether to include folder in indexing", DefaultValueFactory = _ => true };
+    var initNoAddOpt = new Option<bool>("--no-add-to-config") { Description = "Skip adding the folder to the config file's ScanRoots" };
     var initConfigOpt = new Option<string?>("--config") { Description = "Path to crawler-config.json" };
 
     var initCommand = new Command("init", "Initialize a folder as a photo source and run a full crawl");
@@ -25,6 +26,7 @@ try
     initCommand.Add(initLabelOpt);
     initCommand.Add(initTypeOpt);
     initCommand.Add(initEnabledOpt);
+    initCommand.Add(initNoAddOpt);
     initCommand.Add(initConfigOpt);
     initCommand.SetAction(async (parseResult, ct) =>
     {
@@ -33,6 +35,7 @@ try
             parseResult.GetValue(initLabelOpt)!,
             parseResult.GetValue(initTypeOpt)!,
             parseResult.GetValue(initEnabledOpt),
+            addToConfig: !parseResult.GetValue(initNoAddOpt),
             parseResult.GetValue(initConfigOpt));
     });
 

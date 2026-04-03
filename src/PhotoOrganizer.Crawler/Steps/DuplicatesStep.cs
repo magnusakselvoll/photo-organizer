@@ -78,7 +78,8 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
                 groupId, normalizedName, filePaths.Count);
 
             // Load sidecars and folder info for all files in the group
-            var entries = new List<(string FilePath, PhotoMetaSidecar Sidecar, string FolderType)>();
+            var getLastModified = context.GetLastModified ?? (path => File.GetLastWriteTimeUtc(path));
+            var entries = new List<(string FilePath, PhotoMetaSidecar Sidecar, string FolderType, DateTime LastModified)>();
             foreach (var filePath in filePaths)
             {
                 var sidecar = await context.SidecarStore.ReadPhotoMetaAsync(filePath)
@@ -91,19 +92,20 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
                     folderSidecarCache[dir] = folderSidecar;
                 }
                 var folderType = folderSidecar?.Type ?? "mixed";
-                entries.Add((filePath, sidecar, folderType));
+                var lastModified = getLastModified(filePath);
+                entries.Add((filePath, sidecar, folderType, lastModified));
             }
 
-            // Determine preferred: edits > originals > mixed, then most recent capturedAt, then alphabetical
+            // Determine preferred: edits > originals > mixed, then most recently modified, then alphabetical
             var preferred = entries
                 .OrderBy(e => FolderTypePriority(e.FolderType))
-                .ThenByDescending(e => e.Sidecar.CapturedAt ?? DateTimeOffset.MinValue)
+                .ThenByDescending(e => e.LastModified)
                 .ThenBy(e => e.FilePath, StringComparer.OrdinalIgnoreCase)
                 .First();
 
             // Write updated sidecars
             var completedAt = DateTimeOffset.UtcNow;
-            foreach (var (filePath, sidecar, _) in entries)
+            foreach (var (filePath, sidecar, _, _) in entries)
             {
                 sidecar.DuplicateGroupId = groupId;
                 sidecar.IsPreferred = filePath == preferred.FilePath;

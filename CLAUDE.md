@@ -81,7 +81,7 @@ When the user asks to use a worktree or work on multiple issues in parallel:
 
 When asked to "pick the next issue" or "work on the next issue":
 
-1. Fetch open milestones: `gh api repos/magnusakselvoll/photo-organizer/milestones?state=open&per_page=20`
+1. Fetch open milestones: `gh api 'repos/magnusakselvoll/photo-organizer/milestones?state=open&per_page=20'`
 2. Sort milestones by priority if set; otherwise sort by the leading number in the title (e.g. `Phase 0` < `Phase 1`)
 3. From the lowest-priority milestone that still has open issues, fetch its open issues: `gh issue list --repo magnusakselvoll/photo-organizer --milestone "<title>" --state open --json number,title,labels`
 4. Pick the open issue with the lowest number

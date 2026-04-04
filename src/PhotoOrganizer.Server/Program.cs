@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Mvc;
+using PhotoOrganizer.Application.Crawler;
+using PhotoOrganizer.Infrastructure.Crawler;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -22,6 +25,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.Configure<CrawlerSettings>(builder.Configuration.GetSection("Crawler"));
+builder.Services.AddSingleton<ICrawlerService, CrawlerService>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -33,6 +39,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+app.MapPost("/api/crawler/start", async ([FromBody] StartCrawlRequest request, ICrawlerService service) =>
+{
+    var started = await service.StartCrawlAsync(request);
+    return started ? Results.Accepted() : Results.Conflict("Crawler is already running");
+});
+
+app.MapGet("/api/crawler/status", async (ICrawlerService service) =>
+{
+    var status = await service.GetStatusAsync();
+    return Results.Ok(status);
+});
 
 app.MapFallbackToFile("index.html");
 

@@ -10,5 +10,6 @@
     <Project Path="tests/PhotoOrganizer.Application.Tests/PhotoOrganizer.Application.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Infrastructure.Tests/PhotoOrganizer.Infrastructure.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Crawler.Tests/PhotoOrganizer.Crawler.Tests.csproj" />
+    <Project Path="tests/PhotoOrganizer.Server.Tests/PhotoOrganizer.Server.Tests.csproj" />
   </Folder>
 </Solution>

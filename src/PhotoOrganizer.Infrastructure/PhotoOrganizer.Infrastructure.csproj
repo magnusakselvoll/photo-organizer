@@ -1,6 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\PhotoOrganizer.Domain\PhotoOrganizer.Domain.csproj" />
     <ProjectReference Include="..\PhotoOrganizer.Application\PhotoOrganizer.Application.csproj" />
   </ItemGroup>

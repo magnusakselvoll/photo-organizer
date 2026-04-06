@@ -8,13 +8,12 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 
 ## Architecture Conventions
 
-- **Clean Architecture**: Domain → Application → Infrastructure → Server. Never let outer layers bleed into inner ones.
+- Architecture layers and project responsibilities: see SPEC.md section 2
 - **Namespace prefix**: `PhotoOrganizer.*`
-- **Backend**: .NET 10, ASP.NET Core, C#
-- **Frontend**: React + TypeScript, Vite, pnpm
+- **Backend**: .NET 10, ASP.NET Core, C#; **Frontend**: React + TypeScript, Vite, pnpm
 - **Ports (dev)**: Backend `:6192`, Frontend `:6173`
-- **Crawler**: .NET 10 Console App (see ADR 001). Key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
-  - **Python sub-tool strategy**: Image-heavy processing steps (e.g. perceptual hashing for visual duplicate detection) are implemented as standalone Python CLI scripts under `tools/`, invoked by the crawler via `Process.Start()`. Sub-tools share the same sidecar files and SQLite DB — no special IPC needed.
+- **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
+  - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
 
 ## Patterns to Follow
 
@@ -114,14 +113,8 @@ When writing a new test class, explicitly decide which category it belongs to.
 
 ## Documentation Updates
 
-When closing issues via PR, consider updating:
-- **SPEC.md** — Functional requirements, use cases, expected behavior
-- **README.md** — Setup instructions, configuration, user-facing changes
-- **CLAUDE.md** — Technical implementation details, architecture, build commands, known issues
+When closing issues via PR, update as needed: **SPEC.md** (requirements/behavior), **README.md** (setup/config), **CLAUDE.md** (implementation details/build/known issues).
 
 ## Coding Style
 
-- Keep things simple — no speculative abstractions
-- Validate only at system boundaries (user input, external files)
-- Prefer editing existing files over creating new ones
-- Do not auto-commit; always confirm with the user before committing or pushing
+Keep things simple — no speculative abstractions; validate only at system boundaries; prefer editing existing files over creating new ones; do not auto-commit without user confirmation.

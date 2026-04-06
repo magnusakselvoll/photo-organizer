@@ -184,53 +184,11 @@ For each file encountered during a crawl:
 
 ### 6.6 Crawler Database (SQLite)
 
-The crawler maintains a local SQLite database for operational state. This is separate from the sidecar files (which are the source-of-truth metadata) and from the server's domain. The canonical DDL is in `schemas/crawler.sql`.
+The crawler maintains a local SQLite database for operational state. This is separate from the sidecar files (which are the source-of-truth metadata) and from the server's domain.
 
-**`schema_version`**
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `version` | INTEGER | Current DDL version (starts at 1) |
-| `applied_at` | TEXT | When this version was applied |
-
-**`crawled_files`**
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER PK | Auto-increment |
-| `file_path` | TEXT UNIQUE | Absolute path |
-| `file_hash` | TEXT | SHA-256 hex |
-| `modified_at` | TEXT | ISO 8601 last-modified timestamp |
-| `first_seen_at` | TEXT | When crawler first discovered this file |
-| `last_crawled_at` | TEXT | Timestamp of last successful crawl pass |
-| `deleted` | INTEGER | 1 if file was not found on last scan |
-
-**`step_runs`**
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `file_id` | INTEGER FK → crawled_files | |
-| `step_name` | TEXT | Processing step name |
-| `step_version` | INTEGER | Version of the step that ran |
-| `completed_at` | TEXT | When this step completed for this file |
-| `status` | TEXT | `completed` or `failed` |
-| `error_message` | TEXT | Error details if status = `failed` (NULL otherwise) |
-| PK | | `(file_id, step_name)` |
-
-**`crawl_log`**
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER PK | Auto-increment |
-| `started_at` | TEXT | Crawl start time |
-| `completed_at` | TEXT | Crawl end time (NULL if in progress) |
-| `mode` | TEXT | `full` / `incremental` / `targeted` |
-| `target_step` | TEXT | Step name if targeted mode (NULL otherwise) |
-| `status` | TEXT | `running` / `completed` / `failed` |
-| `files_scanned` | INTEGER | Total files found |
-| `files_processed` | INTEGER | Files that needed processing |
-| `files_errored` | INTEGER | Files that failed processing |
-| `error_message` | TEXT | Top-level crawl error, if any |
+**Tables**: `schema_version`, `crawled_files`, `step_runs`, `crawl_log`.
+Canonical DDL with column definitions: `schemas/crawler.sql`.
+Migration policy: `schemas/README.md` section "Versioning Policy".
 
 ### 6.7 Deleted File Handling
 

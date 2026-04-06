@@ -1,0 +1,21 @@
+# Build output
+**/bin/
+**/obj/
+**/TestResults/
+src/PhotoOrganizer.Server/wwwroot/
+
+# Dependencies
+node_modules/
+
+# Runtime data
+*.db
+*.log
+
+# IDE and OS
+.vs/
+.idea/
+*.suo
+*.user
+*.DotSettings.user
+.DS_Store
+Thumbs.db

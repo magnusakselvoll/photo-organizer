@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using PhotoOrganizer.Application;
 using PhotoOrganizer.Application.Crawler;
+using PhotoOrganizer.Domain.Interfaces;
 using PhotoOrganizer.Infrastructure.Crawler;
+using PhotoOrganizer.Infrastructure.Sidecars;
+using PhotoOrganizer.Infrastructure.Storage;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -27,6 +31,11 @@ builder.Services.AddCors(options =>
 
 builder.Services.Configure<CrawlerSettings>(builder.Configuration.GetSection("Crawler"));
 builder.Services.AddSingleton<ICrawlerService, CrawlerService>();
+
+builder.Services.Configure<PhotoOrganizerSettings>(builder.Configuration.GetSection("PhotoOrganizer"));
+builder.Services.AddSingleton<ISidecarReader, SidecarReader>();
+builder.Services.AddSingleton<IFolderRepository, FileSystemFolderRepository>();
+builder.Services.AddSingleton<IPhotoRepository, FileSystemPhotoRepository>();
 
 var app = builder.Build();
 

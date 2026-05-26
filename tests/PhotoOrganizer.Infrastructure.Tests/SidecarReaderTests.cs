@@ -135,4 +135,122 @@ public sealed class SidecarReaderTests
         }
         catch (SidecarParsingException) { }
     }
+
+    [TestMethod]
+    public async Task ReadPhotoMeta_PreviousVersion_MissingFields_UsesDefaults()
+    {
+        var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var capturedAt = new DateTimeOffset(2022, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        await File.WriteAllTextAsync(sidecarPath, $$"""
+            {
+              "capturedAt": "{{capturedAt:O}}"
+            }
+            """);
+
+        var result = await _reader.ReadPhotoMetaAsync(photoPath);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Version);
+        Assert.AreEqual(capturedAt, result.CapturedAt);
+        Assert.IsNull(result.DuplicateGroupId);
+        Assert.IsFalse(result.IsPreferred);
+        Assert.AreEqual(0, result.Tags.Count);
+        Assert.AreEqual(0, result.CrawlSteps.Count);
+    }
+
+    [TestMethod]
+    public async Task ReadPhotoMeta_WithCrawlSteps_DeserializesSteps()
+    {
+        var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var metadataCompletedAt = new DateTimeOffset(2024, 3, 10, 12, 0, 0, TimeSpan.Zero);
+        var duplicatesCompletedAt = new DateTimeOffset(2024, 3, 10, 12, 5, 0, TimeSpan.Zero);
+
+        await File.WriteAllTextAsync(sidecarPath, $$"""
+            {
+              "version": 1,
+              "crawlSteps": {
+                "metadata": { "version": 1, "completedAt": "{{metadataCompletedAt:O}}" },
+                "duplicates": { "version": 1, "completedAt": "{{duplicatesCompletedAt:O}}" }
+              }
+            }
+            """);
+
+        var result = await _reader.ReadPhotoMetaAsync(photoPath);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(2, result.CrawlSteps.Count);
+        Assert.IsTrue(result.CrawlSteps.ContainsKey("metadata"));
+        Assert.AreEqual(1, result.CrawlSteps["metadata"].Version);
+        Assert.AreEqual(metadataCompletedAt, result.CrawlSteps["metadata"].CompletedAt);
+        Assert.IsTrue(result.CrawlSteps.ContainsKey("duplicates"));
+        Assert.AreEqual(duplicatesCompletedAt, result.CrawlSteps["duplicates"].CompletedAt);
+    }
+
+    [TestMethod]
+    public async Task ReadPhotoMeta_FutureVersion_UnknownFields_DoesNotThrow()
+    {
+        var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+
+        await File.WriteAllTextAsync(sidecarPath, """
+            {
+              "version": 99,
+              "capturedAt": null,
+              "unknownTopLevelField": "some value",
+              "crawlSteps": {
+                "metadata": { "version": 1, "completedAt": "2024-01-01T00:00:00Z", "unknownStepField": true }
+              },
+              "anotherFutureField": { "nested": 42 }
+            }
+            """);
+
+        var result = await _reader.ReadPhotoMetaAsync(photoPath);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(99, result.Version);
+        Assert.AreEqual(1, result.CrawlSteps.Count);
+    }
+
+    [TestMethod]
+    public async Task ReadFolderSidecar_PreviousVersion_MissingFields_UsesDefaults()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_tempDir.FullName, "_folder.json"), """
+            {
+              "label": "Vacation",
+              "enabled": false
+            }
+            """);
+
+        var result = await _reader.ReadFolderSidecarAsync(_tempDir.FullName);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Version);
+        Assert.AreEqual("Vacation", result.Label);
+        Assert.AreEqual("mixed", result.Type);
+        Assert.IsFalse(result.Enabled);
+    }
+
+    [TestMethod]
+    public async Task ReadFolderSidecar_FutureVersion_UnknownFields_DoesNotThrow()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_tempDir.FullName, "_folder.json"), """
+            {
+              "version": 99,
+              "label": "Future Folder",
+              "type": "originals",
+              "enabled": true,
+              "unknownField": "something new",
+              "anotherFuture": { "x": 1 }
+            }
+            """);
+
+        var result = await _reader.ReadFolderSidecarAsync(_tempDir.FullName);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(99, result.Version);
+        Assert.AreEqual("Future Folder", result.Label);
+    }
 }

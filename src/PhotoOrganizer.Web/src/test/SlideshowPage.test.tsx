@@ -91,24 +91,28 @@ test('shows empty state when no photos exist (404)', async () => {
   expect(screen.getByText(/no photos to show/i)).toBeInTheDocument();
 });
 
-test('pressing ArrowRight fetches the next photo', async () => {
+test('pressing ArrowRight shows the prefetched photo instantly', async () => {
+  // photo1 (initial) + photo2 (prefetch while photo1 shows) + photo1 (prefetch while photo2 shows)
   vi.mocked(client.getSlideshowNext)
     .mockResolvedValueOnce(mockPhoto1)
-    .mockResolvedValueOnce(mockPhoto2);
+    .mockResolvedValueOnce(mockPhoto2)
+    .mockResolvedValue(mockPhoto1);
 
   renderSlideshow();
   await flushPromises();
 
-  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(1);
+  // After initial load: getSlideshowNext called twice — once for photo1, once for the prefetch
+  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(2);
   expect(screen.getByRole('img', { name: 'a.jpg' })).toHaveAttribute('src', '/api/photos/photo-1/image');
 
-  // ArrowRight triggers next()
+  // ArrowRight: uses the already-prefetched photo2, then starts prefetching the next one
   await act(async () => {
     pressKey('ArrowRight');
   });
   await flushPromises();
 
-  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(2);
+  // One more call for the prefetch after photo2 is shown
+  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(3);
   expect(screen.getByRole('img', { name: 'b.jpg' })).toHaveAttribute('src', '/api/photos/photo-2/image');
 });
 
@@ -129,24 +133,27 @@ test('pressing Escape navigates back to browse page', async () => {
   expect(screen.getByText('Browse page')).toBeInTheDocument();
 });
 
-test('auto-advances after the configured interval', async () => {
+test('auto-advances after the configured interval using the prefetched photo', async () => {
+  // photo1 (initial) + photo2 (prefetch while photo1 shows) + any (prefetch while photo2 shows)
   vi.mocked(client.getSlideshowNext)
     .mockResolvedValueOnce(mockPhoto1)
-    .mockResolvedValueOnce(mockPhoto2);
+    .mockResolvedValueOnce(mockPhoto2)
+    .mockResolvedValue(mockPhoto1);
 
   renderSlideshow();
   await flushPromises();
 
-  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(1);
+  // After initial load: 2 calls — photo1 shown + photo2 prefetched
+  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(2);
   expect(screen.getByRole('img', { name: 'a.jpg' })).toHaveAttribute('src', '/api/photos/photo-1/image');
 
-  // Fire the 8-second auto-advance timer; advanceTimersByTimeAsync also flushes
-  // resolved promises between timer callbacks
+  // Timer fires: consumes prefetched photo2 (no extra fetch), starts prefetch for next
   await act(async () => {
     await vi.advanceTimersByTimeAsync(8_000);
   });
   await flushPromises();
 
-  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(2);
+  // One more call for the prefetch after photo2 is shown
+  expect(vi.mocked(client.getSlideshowNext)).toHaveBeenCalledTimes(3);
   expect(screen.getByRole('img', { name: 'b.jpg' })).toHaveAttribute('src', '/api/photos/photo-2/image');
 });

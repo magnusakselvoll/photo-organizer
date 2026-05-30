@@ -46,6 +46,12 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
   const backoffRef = useRef<number>(1_000);
   const mountedRef = useRef(true);
 
+  // Cache-ahead: fetch + preload the next photo in the background while the
+  // current one is being displayed, so transitions are instant.
+  const prefetchedRef = useRef<PhotoDto | null>(null);
+  // Generation counter lets old in-flight prefetches detect they've been superseded.
+  const prefetchGenRef = useRef(0);
+
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
       clearTimeout(timerRef.current);
@@ -63,10 +69,31 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
     }
   }, []);
 
-  // Fetch the next photo, preload it, push to history and advance.
+  // Begin fetching and preloading the next photo in the background.
+  // Silently discarded if a newer prefetch supersedes this one.
+  const startPrefetch = useCallback(() => {
+    prefetchedRef.current = null; // discard any stale prefetch
+    const gen = ++prefetchGenRef.current;
+
+    getSlideshowNext()
+      .then(photo => {
+        if (!mountedRef.current || gen !== prefetchGenRef.current || !photo) return;
+        prefetchedRef.current = photo;
+        void preloadImage(imageUrl(photo.id));
+      })
+      .catch(() => { /* prefetch failed; will fall back to live fetch on next advance */ });
+  }, []);
+
+  // Fetch the next photo (use prefetch if available), push to history and advance.
   const fetchAndAdvance = useCallback(async () => {
     try {
-      const photo = await getSlideshowNext();
+      // Consume prefetch if ready; invalidate any in-flight prefetch via gen bump
+      // (startPrefetch will bump gen again when it starts the new prefetch).
+      const prefetched = prefetchedRef.current;
+      prefetchedRef.current = null;
+      ++prefetchGenRef.current;
+
+      const photo = prefetched ?? await getSlideshowNext();
       if (!mountedRef.current) return;
 
       if (photo === null) {
@@ -76,22 +103,24 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
         return;
       }
 
-      // Fire-and-forget preload to warm the browser cache ahead of the crossfade.
-      // We don't await so tests and server-side environments aren't blocked if
-      // image load events don't fire (jsdom, etc.).
-      void preloadImage(imageUrl(photo.id));
+      // If we fetched live (no prefetch), fire-and-forget preload for the crossfade.
+      // When using the prefetch the image is already loading/cached.
+      if (!prefetched) void preloadImage(imageUrl(photo.id));
 
       historyRef.current.push(photo);
       pointerRef.current = historyRef.current.length - 1;
       backoffRef.current = 1_000; // reset backoff on success
       applyPointer();
+
+      // Begin fetching the photo after this one while the current one is displayed
+      startPrefetch();
     } catch {
       if (!mountedRef.current) return;
       setHasError(true);
       // Keep the last photo on screen; status stays 'ready' if we had one
       if (status === 'loading') setStatus('error');
     }
-  }, [applyPointer, status]);
+  }, [applyPointer, startPrefetch, status]);
 
   // Schedule the next auto-advance (rescheduling setTimeout pattern)
   const scheduleNext = useCallback(() => {

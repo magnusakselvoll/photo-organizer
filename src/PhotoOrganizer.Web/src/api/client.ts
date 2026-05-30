@@ -1,4 +1,4 @@
-import type { FolderDto, PhotoDto, PhotoPageDto, PhotoQuery } from './types';
+import type { ConfigDto, FolderDto, PhotoDto, PhotoPageDto, PhotoQuery } from './types';
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -29,5 +29,16 @@ export async function getPhoto(id: string): Promise<PhotoDto | null> {
   const res = await fetch(`/api/photos/${id}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: /api/photos/${id}`);
+  return res.json() as Promise<PhotoDto>;
+}
+
+export async function getConfig(): Promise<ConfigDto> {
+  return fetchJson('/api/config');
+}
+
+export async function getSlideshowNext(): Promise<PhotoDto | null> {
+  const res = await fetch('/api/slideshow/next');
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}: /api/slideshow/next`);
   return res.json() as Promise<PhotoDto>;
 }

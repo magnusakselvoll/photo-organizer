@@ -209,3 +209,185 @@
   margin: 0;
   word-break: break-all;
 }
+
+/* App nav (header links) */
+.app-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+}
+
+.app-nav-link {
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.app-nav-link:hover {
+  color: var(--accent);
+}
+
+/* ──────────────────────────────────────────
+   Slideshow
+   ────────────────────────────────────────── */
+
+/* Full-screen container */
+.slideshow-root {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+  cursor: none; /* hide cursor; shown briefly by controls overlay */
+}
+
+.slideshow-root:hover {
+  cursor: default;
+}
+
+/* Each photo layer — stacked absolutely so crossfade works */
+.slideshow-image-wrapper {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity var(--slideshow-transition-ms, 500ms) ease-in-out;
+}
+
+.slideshow-image-wrapper.fading-out {
+  opacity: 0;
+}
+
+/* The actual image — object-fit contain keeps full photo visible */
+.slideshow-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Ken Burns animation via CSS custom properties */
+.slideshow-image.ken-burns {
+  animation: ken-burns var(--kb-duration, 8s) ease-in-out forwards;
+  transform-origin: center center;
+}
+
+@keyframes ken-burns {
+  from {
+    transform:
+      translate(var(--kb-x-from, 0%), var(--kb-y-from, 0%))
+      scale(var(--kb-scale-from, 1.1));
+  }
+  to {
+    transform:
+      translate(var(--kb-x-to, 2%), var(--kb-y-to, 2%))
+      scale(var(--kb-scale-to, 1.2));
+  }
+}
+
+/* Disable Ken Burns for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .slideshow-image.ken-burns {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* Controls overlay — hidden until cursor moves */
+.slideshow-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 40px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.slideshow-controls.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.slideshow-controls-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  padding: 10px 20px;
+}
+
+.slideshow-control-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  opacity: 0.85;
+}
+
+.slideshow-control-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 1;
+}
+
+.slideshow-exit-ctrl {
+  font-size: 18px;
+  margin-left: 8px;
+  opacity: 0.6;
+}
+
+/* Subtle error indicator — top-right corner */
+.slideshow-error-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: #fbbf24;
+  font-size: 20px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Empty state */
+.slideshow-empty-state {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.slideshow-empty-state p {
+  margin: 0;
+}
+
+.slideshow-exit-btn {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: border-color 0.15s;
+}
+
+.slideshow-exit-btn:hover {
+  border-color: #fff;
+}

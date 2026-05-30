@@ -32,3 +32,13 @@ export interface PhotoQuery {
   page?: number;
   pageSize?: number;
 }
+
+export interface SlideshowConfigDto {
+  intervalSeconds: number;
+  transitionMs: number;
+}
+
+export interface ConfigDto {
+  scanRoots: string[];
+  slideshow: SlideshowConfigDto;
+}

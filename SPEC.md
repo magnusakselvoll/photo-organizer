@@ -204,11 +204,16 @@ Crawler config (standalone file, format to be determined by implementation):
 {
   "Crawler": {
     "DatabasePath": "./crawler.db",
+    "ScanRoots": [
+      "/path/to/your/photos"
+    ],
     "ScheduleIntervalMinutes": 60,
     "OrphanedSidecarCleanup": false
   }
 }
 ```
+
+`ScanRoots` is a list of root paths the crawler scans for photos. Each root must be initialised with `crawler init` before it will be crawled (which creates `_folder.json`). The `DatabasePath` is where the crawler writes its SQLite tracking database.
 
 ## 7. API Endpoints
 

@@ -11,5 +11,9 @@
     <Project Path="tests/PhotoOrganizer.Infrastructure.Tests/PhotoOrganizer.Infrastructure.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Crawler.Tests/PhotoOrganizer.Crawler.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Server.Tests/PhotoOrganizer.Server.Tests.csproj" />
+    <Project Path="tests/PhotoOrganizer.EndToEnd.Tests/PhotoOrganizer.EndToEnd.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PhotoOrganizer.FixtureGenerator/PhotoOrganizer.FixtureGenerator.csproj" />
   </Folder>
 </Solution>

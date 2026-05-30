@@ -91,8 +91,12 @@ When asked to "pick the next issue" or "work on the next issue":
 ```bash
 dotnet build                                           # Build all projects
 dotnet test                                            # Run all tests
-dotnet test --filter "TestCategory!=Integration"       # Run only non-integration tests (CI)
+dotnet test --filter "TestCategory!=Integration"       # Run only unit tests (CI dotnet job)
+dotnet test --filter "TestCategory=Integration"        # Run only integration tests (CI integration job)
 dotnet run --project src/PhotoOrganizer.Server         # Run the backend server
+
+# Fixture generator (run once to regenerate committed test fixtures)
+dotnet run --project tools/PhotoOrganizer.FixtureGenerator
 
 # Frontend (run inside src/PhotoOrganizer.Web)
 pnpm install                                           # Install dependencies
@@ -104,12 +108,24 @@ pnpm run test                                          # Run frontend tests
 
 ## Test Classification
 
-CI runs `dotnet test --filter "TestCategory!=Integration"`, so every new test class **must** be correctly classified:
+CI runs two separate .NET jobs — `dotnet` (unit tests) and `integration` (integration tests). Every new test class **must** be correctly classified:
 
-- **Unit tests** (no attribute): Pure in-process tests using fakes/stubs. These run in CI.
-- **Integration tests** (`[TestCategory("Integration")]`): Tests requiring external resources (real file system with specific paths, external services). These are skipped in CI.
+- **Unit tests** (no attribute): Pure in-process tests using fakes/stubs. These run in the `dotnet` CI job.
+- **Integration tests** (`[TestCategory("Integration")]`): Tests that run the full pipeline against real file system state (e.g., the end-to-end test in `tests/PhotoOrganizer.EndToEnd.Tests`). These run in the `integration` CI job.
+
+Integration tests **must be CI-safe**: self-contained (copy committed fixtures from `tests/fixtures/photos/` to a temp dir, clean up on teardown) with no dependency on local machine state like personal photo paths.
 
 When writing a new test class, explicitly decide which category it belongs to.
+
+## Test Fixtures
+
+Committed JPEG fixtures live in `tests/fixtures/photos/`:
+- `originals/` — 12 photos with EXIF `DateTimeOriginal`; 3 have matching edits
+- `edits/` — 3 edited copies of originals (named `IMG_xxxx_edit.jpg`)
+
+Each subfolder has a `_folder.json` with the correct `type` so the crawler's duplicate detection logic correctly prefers `edits/` over `originals/`. Sidecars (`.meta.json`) are **not** committed; the end-to-end test creates them in a temp working copy.
+
+To regenerate fixtures: `dotnet run --project tools/PhotoOrganizer.FixtureGenerator`. The generator (`tools/PhotoOrganizer.FixtureGenerator/`) uses SixLabors.ImageSharp 3.x (Apache licensed) to write 64×64 JPEGs with EXIF data.
 
 ## Documentation Updates
 

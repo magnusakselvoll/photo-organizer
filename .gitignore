@@ -11,6 +11,8 @@
 *.sln.docstates
 *.env
 appsettings.json
+crawler-config.json
+crawler.db
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

@@ -25,18 +25,86 @@ Photos live across multiple folders on a Windows PC and a Synology NAS. This app
 
 ## Development
 
-> Setup and run instructions will be added as the project takes shape.
-
 ### Prerequisites
 
-- .NET 10 SDK
-- Node.js 20+ and pnpm
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js 22+](https://nodejs.org/) and [pnpm](https://pnpm.io/installation)
 - Windows or macOS
 
-### Running Locally
+### First-time setup
+
+**1. Configure the server**
 
 ```sh
-# To be documented
+cp src/PhotoOrganizer.Server/appsettings.example.json src/PhotoOrganizer.Server/appsettings.json
+```
+
+Edit `src/PhotoOrganizer.Server/appsettings.json` and set `ScanRoots` to your photo library paths.
+
+**2. Configure the crawler**
+
+```sh
+cp crawler-config.example.json crawler-config.json
+```
+
+Edit `crawler-config.json` and set `ScanRoots` to the same paths.
+
+**3. Build the frontend**
+
+```sh
+cd src/PhotoOrganizer.Web
+pnpm install
+pnpm run build
+cd ../..
+```
+
+### Running locally
+
+**Start the backend server** (port 6192):
+
+```sh
+dotnet run --project src/PhotoOrganizer.Server
+```
+
+**Seed and run the crawler** (writes sidecar metadata alongside your photos):
+
+```sh
+# First-time: initialise a folder (creates _folder.json and runs a full crawl)
+dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos --label "My Photos"
+
+# Subsequent runs: incremental crawl (only processes changed files)
+dotnet run --project src/PhotoOrganizer.Crawler -- run
+
+# Full re-crawl
+dotnet run --project src/PhotoOrganizer.Crawler -- run --mode full
+```
+
+Open [http://localhost:6192](http://localhost:6192) in your browser.
+
+### Frontend dev mode
+
+For hot-reload during frontend development, start both the backend and the Vite dev server:
+
+```sh
+# Terminal 1 — backend (port 6192)
+dotnet run --project src/PhotoOrganizer.Server
+
+# Terminal 2 — frontend dev server (port 6173, proxied to backend)
+cd src/PhotoOrganizer.Web
+pnpm run dev
+```
+
+### Build and test
+
+```sh
+dotnet build                                           # Build all projects
+dotnet test --filter "TestCategory!=Integration"       # Unit tests (CI)
+dotnet test --filter "TestCategory=Integration"        # Integration tests (requires file system)
+dotnet test                                            # All tests
+
+cd src/PhotoOrganizer.Web
+pnpm run lint                                          # Lint frontend
+pnpm run test                                          # Frontend tests
 ```
 
 ## Project Structure

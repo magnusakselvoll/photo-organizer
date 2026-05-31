@@ -46,6 +46,11 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
   const backoffRef = useRef<number>(1_000);
   const mountedRef = useRef(true);
 
+  // Stable refs to the latest scheduleNext/scheduleRetry so timer callbacks
+  // always invoke the current version even after deps have changed.
+  const scheduleNextRef = useRef<() => void>(() => {});
+  const scheduleRetryRef = useRef<() => void>(() => {});
+
   // Cache-ahead: fetch + preload the next photo in the background while the
   // current one is being displayed, so transitions are instant.
   const prefetchedRef = useRef<PhotoDto | null>(null);
@@ -122,7 +127,9 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
     }
   }, [applyPointer, startPrefetch, status]);
 
-  // Schedule the next auto-advance (rescheduling setTimeout pattern)
+  // Schedule the next auto-advance (rescheduling setTimeout pattern).
+  // Recursive calls go through scheduleNextRef so they always use the latest
+  // version and avoid stale-closure issues when deps change.
   const scheduleNext = useCallback(() => {
     clearTimer();
     timerRef.current = window.setTimeout(() => {
@@ -130,15 +137,21 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
       // Only auto-advance when at the head of history (not browsing backwards)
       if (pointerRef.current === historyRef.current.length - 1) {
         fetchAndAdvance().then(() => {
-          if (mountedRef.current && !paused) scheduleNext();
+          if (mountedRef.current && !paused) scheduleNextRef.current();
         });
       } else {
-        scheduleNext();
+        scheduleNextRef.current();
       }
     }, intervalMs);
   }, [clearTimer, fetchAndAdvance, intervalMs, paused]);
 
-  // Error retry with exponential backoff
+  // Keep refs in sync so timer callbacks always call the latest version.
+  // Must be done in an effect (not during render) per react-hooks/refs.
+  useEffect(() => { scheduleNextRef.current = scheduleNext; }, [scheduleNext]);
+
+  // Error retry with exponential backoff.
+  // Uses refs for recursive self-calls and for calling scheduleNext to avoid
+  // stale closures.
   const scheduleRetry = useCallback(() => {
     clearTimer();
     timerRef.current = window.setTimeout(() => {
@@ -147,18 +160,23 @@ export function useSlideshow({ intervalMs }: UseSlideshowOptions): SlideshowStat
         if (mountedRef.current) {
           if (hasError) {
             backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
-            scheduleRetry();
+            scheduleRetryRef.current();
           } else if (!paused) {
-            scheduleNext();
+            scheduleNextRef.current();
           }
         }
       });
     }, backoffRef.current);
-  }, [clearTimer, fetchAndAdvance, hasError, paused, scheduleNext]);
+  }, [clearTimer, fetchAndAdvance, hasError, paused]);
+
+  useEffect(() => { scheduleRetryRef.current = scheduleRetry; }, [scheduleRetry]);
 
   // Initial load
   useEffect(() => {
     mountedRef.current = true;
+    // fetchAndAdvance sets state asynchronously (after the Promise resolves),
+    // not synchronously — the rule fires a false positive here.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAndAdvance().then(() => {
       if (mountedRef.current && !paused) scheduleNext();
     });

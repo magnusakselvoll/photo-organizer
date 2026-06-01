@@ -12,7 +12,7 @@ public sealed class CrawlOrchestrator
     private readonly ICrawledFileRepository _fileRepo;
     private readonly ICrawlLogRepository _logRepo;
     private readonly ISidecarStore _sidecarStore;
-    private readonly IFileDiscoverer _discoverer;
+    private readonly ICrawlTargetResolver _resolver;
     private readonly ChangeDetector _changeDetector;
     private readonly PipelineRunner _pipeline;
     private readonly IReadOnlyList<IBatchProcessingStep> _batchSteps;
@@ -21,7 +21,7 @@ public sealed class CrawlOrchestrator
         ICrawledFileRepository fileRepo,
         ICrawlLogRepository logRepo,
         ISidecarStore sidecarStore,
-        IFileDiscoverer discoverer,
+        ICrawlTargetResolver resolver,
         ChangeDetector changeDetector,
         PipelineRunner pipeline,
         IReadOnlyList<IBatchProcessingStep>? batchSteps = null)
@@ -29,7 +29,7 @@ public sealed class CrawlOrchestrator
         _fileRepo = fileRepo;
         _logRepo = logRepo;
         _sidecarStore = sidecarStore;
-        _discoverer = discoverer;
+        _resolver = resolver;
         _changeDetector = changeDetector;
         _pipeline = pipeline;
         _batchSteps = batchSteps ?? [];
@@ -47,25 +47,19 @@ public sealed class CrawlOrchestrator
         {
             var allDiscoveredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var folderPath in folderPaths)
+            var targets = await _resolver.ResolveAsync(folderPaths);
+            foreach (var target in targets)
             {
-                var folderSidecar = await _sidecarStore.ReadFolderSidecarAsync(folderPath);
-                if (folderSidecar is null)
+                if (!target.Sidecar.Enabled)
                 {
-                    Log.Warning("No _folder.json found in {FolderPath}, skipping", folderPath);
-                    continue;
-                }
-                if (!folderSidecar.Enabled)
-                {
-                    Log.Information("Folder {FolderPath} is disabled, skipping", folderPath);
+                    Log.Information("Folder {FolderPath} is disabled, skipping", target.FolderPath);
                     continue;
                 }
 
-                Log.Information("Crawling folder {FolderPath} ({Label})", folderPath, folderSidecar.Label);
-                var discovered = _discoverer.Discover(folderPath);
-                filesScanned += discovered.Count;
+                Log.Information("Crawling folder {FolderPath} ({Label})", target.FolderPath, target.Sidecar.Label);
+                filesScanned += target.Files.Count;
 
-                foreach (var file in discovered)
+                foreach (var file in target.Files)
                 {
                     allDiscoveredPaths.Add(file.FilePath);
 
@@ -171,16 +165,15 @@ public sealed class CrawlOrchestrator
 
             var allDiscoveredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var folderPath in folderPaths)
+            var targets = await _resolver.ResolveAsync(folderPaths);
+            foreach (var target in targets)
             {
-                var folderSidecar = await _sidecarStore.ReadFolderSidecarAsync(folderPath);
-                if (folderSidecar is null || !folderSidecar.Enabled)
+                if (!target.Sidecar.Enabled)
                     continue;
 
-                var discovered = _discoverer.Discover(folderPath);
-                filesScanned += discovered.Count;
+                filesScanned += target.Files.Count;
 
-                foreach (var file in discovered)
+                foreach (var file in target.Files)
                 {
                     allDiscoveredPaths.Add(file.FilePath);
                     await _fileRepo.UpsertAsync(file.FilePath, null, file.LastModified);

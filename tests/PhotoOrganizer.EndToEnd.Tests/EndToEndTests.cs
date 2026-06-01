@@ -36,7 +36,8 @@ public class EndToEndTests
 
         var config = new CrawlerConfig { DatabasePath = _dbPath };
         using var services = CrawlerServices.Build(config);
-        await services.Orchestrator.RunAsync([_originalsDir, _editsDir], fullMode: true);
+        // Pass only the library root — recursive _folder.json discovery finds originals/ and edits/
+        await services.Orchestrator.RunAsync([_photosRoot], fullMode: true);
     }
 
     [ClassCleanup]

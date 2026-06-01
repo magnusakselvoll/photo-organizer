@@ -39,7 +39,7 @@ Photos live across multiple folders on a Windows PC and a Synology NAS. This app
 cp src/PhotoOrganizer.Server/appsettings.example.json src/PhotoOrganizer.Server/appsettings.json
 ```
 
-Edit `src/PhotoOrganizer.Server/appsettings.json` and set `ScanRoots` to your photo library paths.
+Edit `src/PhotoOrganizer.Server/appsettings.json` and set `ScanRoots` to your photo library paths. You can point each entry at the top of a library tree — any subfolder with a `_folder.json` will be discovered automatically.
 
 **2. Configure the crawler**
 
@@ -47,7 +47,7 @@ Edit `src/PhotoOrganizer.Server/appsettings.json` and set `ScanRoots` to your ph
 cp crawler-config.example.json crawler-config.json
 ```
 
-Edit `crawler-config.json` and set `ScanRoots` to the same paths.
+Edit `crawler-config.json` and set `ScanRoots` to the same paths. Each entry is searched recursively; individual subfolders are opted in via `crawler init`.
 
 **3. Build the frontend**
 
@@ -69,10 +69,11 @@ dotnet run --project src/PhotoOrganizer.Server
 **Seed and run the crawler** (writes sidecar metadata alongside your photos):
 
 ```sh
-# First-time: initialise a folder (creates _folder.json and runs a full crawl)
-dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos --label "My Photos"
+# Initialise a subfolder (creates _folder.json and runs a full crawl on that folder)
+dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos/originals --label "Originals"
+dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos/edits --label "Edits" --type edits
 
-# Subsequent runs: incremental crawl (only processes changed files)
+# Subsequent runs: incremental crawl across all initialised folders under ScanRoots
 dotnet run --project src/PhotoOrganizer.Crawler -- run
 
 # Full re-crawl

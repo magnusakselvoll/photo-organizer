@@ -213,7 +213,7 @@ Crawler config (standalone file, format to be determined by implementation):
 }
 ```
 
-`ScanRoots` is a list of root paths the crawler scans for photos. Each root must be initialised with `crawler init` before it will be crawled (which creates `_folder.json`). The `DatabasePath` is where the crawler writes its SQLite tracking database.
+`ScanRoots` is a list of root paths the crawler searches recursively for `_folder.json` files. Every folder that contains a `_folder.json` becomes an independent crawl unit with its own type and enabled setting. Photos in nested subfolders without their own `_folder.json` are crawled under the nearest ancestor folder that has one; photos not beneath any `_folder.json` folder are silently skipped. Use `crawler init <path>` to create a `_folder.json` in a folder and opt it in to crawling. `DatabasePath` is where the crawler writes its SQLite tracking database.
 
 ## 7. API Endpoints
 

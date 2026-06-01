@@ -31,8 +31,9 @@ public sealed class CrawlerServices : IDisposable
 
         var registry = new StepRegistry([new MetadataStep()], [new DuplicatesStep()]);
         var pipeline = new PipelineRunner(registry, sidecarStore, fileRepo);
+        var resolver = new CrawlTargetResolver(sidecarStore, discoverer);
 
-        var orchestrator = new CrawlOrchestrator(fileRepo, logRepo, sidecarStore, discoverer, changeDetector, pipeline, registry.BatchSteps);
+        var orchestrator = new CrawlOrchestrator(fileRepo, logRepo, sidecarStore, resolver, changeDetector, pipeline, registry.BatchSteps);
         return new CrawlerServices(orchestrator);
     }
 

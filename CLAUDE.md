@@ -14,6 +14,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Ports (dev)**: Backend `:6192`, Frontend `:6173`
 - **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
   - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
+  - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
 
 ## Patterns to Follow
 

@@ -177,4 +177,29 @@ public class CrawlTargetResolverTests
             Directory.Delete(root2, recursive: true);
         }
     }
+
+    [TestMethod]
+    public async Task ResolveAsync_SkipsReparsePointSubdirectory_AndStillFindsTargets()
+    {
+        WriteFolderJson(_root, "originals");
+        WritePhoto(_root, "photo.jpg");
+
+        // A broken directory symlink as a sibling subfolder — a reparse point whose target doesn't exist
+        var brokenLink = Path.Combine(_root, "broken-link");
+        try
+        {
+            Directory.CreateSymbolicLink(brokenLink, Path.Combine(_root, "does-not-exist"));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive($"Symlink creation unsupported on this host: {ex.Message}");
+            return;
+        }
+
+        // Must not throw; must still resolve the valid target
+        var targets = await _resolver.ResolveAsync([_root]);
+
+        Assert.AreEqual(1, targets.Count);
+        Assert.AreEqual(1, targets[0].Files.Count);
+    }
 }

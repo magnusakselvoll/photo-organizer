@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using PhotoOrganizer.Domain;
 using PhotoOrganizer.Domain.Interfaces;
 
@@ -16,14 +17,17 @@ public sealed class FileSystemPhotoRepository : IPhotoRepository
 
     private readonly IFolderRepository _folderRepository;
     private readonly ISidecarReader _sidecarReader;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IReadOnlyList<Photo>? _cache;
     private Dictionary<Guid, Photo>? _cacheById;
 
-    public FileSystemPhotoRepository(IFolderRepository folderRepository, ISidecarReader sidecarReader)
+    public FileSystemPhotoRepository(IFolderRepository folderRepository, ISidecarReader sidecarReader,
+        ILogger<FileSystemPhotoRepository> logger)
     {
         _folderRepository = folderRepository;
         _sidecarReader = sidecarReader;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<Photo>> GetAllPhotosAsync()
@@ -78,7 +82,7 @@ public sealed class FileSystemPhotoRepository : IPhotoRepository
             if (!Directory.Exists(folder.Path))
                 continue;
 
-            foreach (var filePath in Directory.EnumerateFiles(folder.Path, "*", SearchOption.AllDirectories))
+            foreach (var filePath in ResilientFileWalker.EnumerateFiles(folder.Path, "*", _logger))
             {
                 var ext = Path.GetExtension(filePath);
                 if (!PhotoExtensions.Contains(ext))

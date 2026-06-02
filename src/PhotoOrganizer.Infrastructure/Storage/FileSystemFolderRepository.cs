@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoOrganizer.Application;
 using PhotoOrganizer.Domain;
@@ -9,13 +10,16 @@ public sealed class FileSystemFolderRepository : IFolderRepository
 {
     private readonly PhotoOrganizerSettings _settings;
     private readonly ISidecarReader _sidecarReader;
+    private readonly ILogger _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private List<SourceFolder>? _cache;
 
-    public FileSystemFolderRepository(IOptions<PhotoOrganizerSettings> settings, ISidecarReader sidecarReader)
+    public FileSystemFolderRepository(IOptions<PhotoOrganizerSettings> settings, ISidecarReader sidecarReader,
+        ILogger<FileSystemFolderRepository> logger)
     {
         _settings = settings.Value;
         _sidecarReader = sidecarReader;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<SourceFolder>> GetAllFoldersAsync()
@@ -53,7 +57,7 @@ public sealed class FileSystemFolderRepository : IFolderRepository
             if (!Directory.Exists(scanRoot))
                 continue;
 
-            foreach (var sidecarFile in Directory.EnumerateFiles(scanRoot, "_folder.json", SearchOption.AllDirectories))
+            foreach (var sidecarFile in ResilientFileWalker.EnumerateFiles(scanRoot, "_folder.json", _logger))
             {
                 var folderPath = Path.GetDirectoryName(sidecarFile);
                 if (folderPath is null)

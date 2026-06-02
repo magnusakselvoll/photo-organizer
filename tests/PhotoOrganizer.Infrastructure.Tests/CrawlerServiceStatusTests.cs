@@ -100,6 +100,8 @@ public class CrawlerServiceStatusTests
         }
         finally
         {
+            // ClearAllPools releases pooled SQLite file handles; required on Windows before File.Delete
+            SqliteConnection.ClearAllPools();
             File.Delete(path);
         }
     }
@@ -140,6 +142,7 @@ public class CrawlerServiceStatusTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             File.Delete(path);
         }
     }
@@ -180,6 +183,7 @@ public class CrawlerServiceStatusTests
         }
         finally
         {
+            SqliteConnection.ClearAllPools();
             File.Delete(path);
         }
     }

@@ -12,7 +12,7 @@ public sealed class FileDiscoverer : IFileDiscoverer
     public IReadOnlyList<DiscoveredFile> Discover(string folderPath)
     {
         var results = new List<DiscoveredFile>();
-        foreach (var filePath in Directory.EnumerateFiles(folderPath, "*", SearchOption.AllDirectories))
+        foreach (var filePath in ResilientFileWalker.EnumerateFiles(folderPath, "*"))
         {
             var ext = Path.GetExtension(filePath);
             if (!PhotoExtensions.Contains(ext))

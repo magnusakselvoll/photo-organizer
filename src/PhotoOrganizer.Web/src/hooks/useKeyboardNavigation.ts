@@ -4,6 +4,10 @@ export interface KeyboardNavigationConfig {
   onNext?: () => void;
   onPrevious?: () => void;
   onTogglePause?: () => void;
+  onIncreaseDuration?: () => void;
+  onDecreaseDuration?: () => void;
+  onShowInfo?: () => void;
+  onShowHelp?: () => void;
   onExit?: () => void;
   enabled?: boolean;
 }
@@ -12,6 +16,10 @@ export function useKeyboardNavigation({
   onNext,
   onPrevious,
   onTogglePause,
+  onIncreaseDuration,
+  onDecreaseDuration,
+  onShowInfo,
+  onShowHelp,
   onExit,
   enabled = true,
 }: KeyboardNavigationConfig): void {
@@ -27,7 +35,6 @@ export function useKeyboardNavigation({
     }
 
     switch (event.key) {
-      case ' ':
       case 'ArrowRight':
         event.preventDefault();
         onNext?.();
@@ -36,17 +43,38 @@ export function useKeyboardNavigation({
         event.preventDefault();
         onPrevious?.();
         break;
+      case ' ':
       case 'p':
       case 'P':
         event.preventDefault();
         onTogglePause?.();
+        break;
+      case '+':
+      case '=':
+        event.preventDefault();
+        onIncreaseDuration?.();
+        break;
+      case '-':
+      case '_':
+        event.preventDefault();
+        onDecreaseDuration?.();
+        break;
+      case 'i':
+      case 'I':
+        event.preventDefault();
+        onShowInfo?.();
+        break;
+      case '?':
+      case '/':
+        event.preventDefault();
+        onShowHelp?.();
         break;
       case 'Escape':
         event.preventDefault();
         onExit?.();
         break;
     }
-  }, [enabled, onNext, onPrevious, onTogglePause, onExit]);
+  }, [enabled, onNext, onPrevious, onTogglePause, onIncreaseDuration, onDecreaseDuration, onShowInfo, onShowHelp, onExit]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

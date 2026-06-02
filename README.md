@@ -9,7 +9,7 @@ Photos live across multiple folders on a Windows PC and a Synology NAS. This app
 ## Key Features
 
 - Browse photos across multiple configured source folders
-- Slideshow mode with smooth transitions
+- Slideshow mode with smooth transitions and Ken Burns effects; fully keyboard-navigable
 - Originals and edited versions tracked separately; edited versions preferred for display
 - Duplicate detection based on file names across folders
 - Metadata stored as sidecar files alongside photos — no database lock-in
@@ -81,6 +81,19 @@ dotnet run --project src/PhotoOrganizer.Crawler -- run --mode full
 ```
 
 Open [http://localhost:6192](http://localhost:6192) in your browser.
+
+### Slideshow keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `←` / `→` | Previous / Next photo |
+| `Space` | Play / Pause |
+| `+` / `-` | Increase / Decrease display time (10s steps below 60s, 60s steps above) |
+| `I` | Show photo info |
+| `?` | Show this shortcut reference |
+| `Esc` | Exit slideshow |
+
+The display time defaults to **30 seconds** and can be adjusted between 10 seconds and 10 minutes. The Ken Burns effect duration follows the display time automatically. To change the default, set `PhotoOrganizer:Slideshow:IntervalSeconds` in `appsettings.json`.
 
 ### Frontend dev mode
 

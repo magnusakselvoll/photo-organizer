@@ -391,3 +391,95 @@
 .slideshow-exit-btn:hover {
   border-color: #fff;
 }
+
+/* Feedback / info overlay — centred, auto-dismissed by useOverlayMessage */
+.slideshow-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: min(560px, 90vw);
+  width: max-content;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 20px 28px;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: slideshow-overlay-in 0.2s ease;
+  z-index: 10;
+}
+
+@keyframes slideshow-overlay-in {
+  from { opacity: 0; transform: translate(-50%, -48%); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* Photo info panel inside the overlay */
+.slideshow-info-panel {
+  min-width: 260px;
+}
+
+.slideshow-info-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.slideshow-info-dl dt {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.slideshow-info-dl dd {
+  color: #fff;
+  font-size: 13px;
+  margin: 0;
+  word-break: break-all;
+}
+
+.slideshow-info-path {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* Shortcut help panel inside the overlay */
+.slideshow-shortcut-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.slideshow-shortcut-table {
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 260px;
+}
+
+.slideshow-shortcut-table td {
+  padding: 4px 0;
+  vertical-align: top;
+}
+
+.slideshow-shortcut-table td:first-child {
+  padding-right: 20px;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.slideshow-shortcut-table kbd {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+}

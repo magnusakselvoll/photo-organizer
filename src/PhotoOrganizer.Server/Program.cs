@@ -125,7 +125,11 @@ app.MapGet("/api/slideshow/next", async (IPhotoService service) =>
         return Results.NotFound();
 
     var index = Random.Shared.Next(page.TotalCount);
-    return Results.Ok(page.Items[index]);
+    var picked = page.Items[index];
+
+    // Enrich with sibling versions so the info overlay can list all copies.
+    var enriched = await service.GetPhotoByIdAsync(picked.Id);
+    return Results.Ok(enriched ?? picked);
 });
 
 app.MapGet("/api/config", (IOptions<PhotoOrganizerSettings> options) =>

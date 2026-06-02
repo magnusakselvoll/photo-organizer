@@ -61,7 +61,7 @@ public class SidecarStoreTests
     {
         // Write a sidecar JSON with an extra unknown field (simulating future schema addition)
         var photoPath = Path.Combine(_tempDir, "photo.jpg");
-        var sidecarPath = Path.Combine(_tempDir, "photo.meta.json");
+        var sidecarPath = Path.Combine(_tempDir, "photo.jpg.meta.json");
         var json = """{"version":1,"capturedAt":null,"unknownFutureField":"someValue"}""";
         await File.WriteAllTextAsync(sidecarPath, json);
 
@@ -69,7 +69,7 @@ public class SidecarStoreTests
         var loaded = await store.ReadPhotoMetaAsync(photoPath);
         Assert.IsNotNull(loaded);
 
-        // Re-write and verify the unknown field is preserved
+        // Re-write and verify the unknown field is preserved (path still photo.jpg.meta.json)
         await store.WritePhotoMetaAsync(photoPath, loaded);
         var rewritten = await File.ReadAllTextAsync(sidecarPath);
         Assert.IsTrue(rewritten.Contains("unknownFutureField"), "Unknown fields must be preserved on round-trip");
@@ -96,7 +96,8 @@ public class SidecarStoreTests
     {
         var store = new JsonSidecarStore();
         var photoPath = Path.Combine(_tempDir, "IMG_1234.JPG");
-        var expectedSidecarPath = Path.Combine(_tempDir, "IMG_1234.meta.json");
+        // Sidecar keeps the original extension: IMG_1234.JPG.meta.json
+        var expectedSidecarPath = Path.Combine(_tempDir, "IMG_1234.JPG.meta.json");
 
         await store.WritePhotoMetaAsync(photoPath, new PhotoMetaSidecar());
         Assert.IsTrue(File.Exists(expectedSidecarPath));

@@ -49,7 +49,7 @@ public sealed class RandomizedSidecarIndexerTests
         var sidecar = new PhotoMetaSidecar { CapturedAt = capturedAt, IsPreferred = isPreferred };
         var metaPath = Path.Combine(
             Path.GetDirectoryName(photoPath)!,
-            Path.GetFileNameWithoutExtension(photoPath) + ".meta.json");
+            Path.GetFileName(photoPath) + ".meta.json");
         File.WriteAllText(metaPath, JsonSerializer.Serialize(sidecar, SidecarJson));
     }
 

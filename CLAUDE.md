@@ -20,7 +20,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 
 - **Repository pattern** for all data access — domain defines interfaces, infrastructure implements them
 - **Pluggable providers** — camera/storage/detection strategies behind interfaces, easy to swap
-- **Sidecar files** (`_folder.json`, `<name>.meta.json`) for all metadata — no database required
+- **Sidecar files** (`_folder.json`, `<name>.<ext>.meta.json`) for all metadata — no database required. Photo sidecars keep the full filename including extension so RAW+JPEG pairs in the same folder each get a distinct sidecar file.
 - **Lazy loading** — index and cache photo metadata on demand rather than at startup
 - **Thread-safe file access** — use semaphore locks when reading/writing shared state
 - **Centralized package versions** — `Directory.Packages.props`; no version numbers inside individual `.csproj` files

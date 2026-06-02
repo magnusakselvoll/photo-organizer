@@ -46,7 +46,8 @@ public class FileDiscovererTests
     public void SkipsSidecarFiles()
     {
         File.WriteAllText(Path.Combine(_tempDir, "photo.jpg"), "");
-        File.WriteAllText(Path.Combine(_tempDir, "photo.meta.json"), "{}");
+        // Sidecar format: <filename>.<ext>.meta.json
+        File.WriteAllText(Path.Combine(_tempDir, "photo.jpg.meta.json"), "{}");
         File.WriteAllText(Path.Combine(_tempDir, "_folder.json"), "{}");
 
         var discovered = _discoverer.Discover(_tempDir);

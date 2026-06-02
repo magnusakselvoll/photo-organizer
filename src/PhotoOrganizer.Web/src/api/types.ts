@@ -1,5 +1,13 @@
 export type FolderType = 'Originals' | 'Edits' | 'Mixed';
 
+export interface PhotoVersionDto {
+  id: string;
+  fileName: string;
+  folderType: FolderType;
+  filePath: string;
+  isPreferred: boolean;
+}
+
 export interface PhotoDto {
   id: string;
   filePath: string;
@@ -9,6 +17,8 @@ export interface PhotoDto {
   duplicateGroupId: string | null;
   isPreferred: boolean;
   tags: string[];
+  /** All versions in this duplicate group, ordered preferred first. Populated on single-photo fetches. */
+  versions: PhotoVersionDto[];
 }
 
 export interface FolderDto {

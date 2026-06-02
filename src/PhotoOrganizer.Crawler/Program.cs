@@ -19,6 +19,7 @@ try
     var initTypeOpt = new Option<string>("--type") { Description = "Folder type: originals, edits, or mixed", DefaultValueFactory = _ => "mixed" };
     var initEnabledOpt = new Option<bool>("--enabled") { Description = "Whether to include folder in indexing", DefaultValueFactory = _ => true };
     var initNoAddOpt = new Option<bool>("--no-add-to-config") { Description = "Skip adding the folder to the config file's ScanRoots" };
+    var initDeleteMetaOpt = new Option<bool>("--delete-existing-meta") { Description = "Delete all .meta.json sidecars before crawling (forces a full crawl; useful after a sidecar format change)" };
     var initConfigOpt = new Option<string?>("--config") { Description = "Path to crawler-config.json" };
 
     var initCommand = new Command("init", "Initialize a folder as a photo source and run a full crawl");
@@ -27,6 +28,7 @@ try
     initCommand.Add(initTypeOpt);
     initCommand.Add(initEnabledOpt);
     initCommand.Add(initNoAddOpt);
+    initCommand.Add(initDeleteMetaOpt);
     initCommand.Add(initConfigOpt);
     initCommand.SetAction(async (parseResult, ct) =>
     {
@@ -36,23 +38,27 @@ try
             parseResult.GetValue(initTypeOpt)!,
             parseResult.GetValue(initEnabledOpt),
             addToConfig: !parseResult.GetValue(initNoAddOpt),
+            deleteExistingMeta: parseResult.GetValue(initDeleteMetaOpt),
             parseResult.GetValue(initConfigOpt));
     });
 
     // --- run command ---
     var runModeOpt = new Option<string>("--mode") { Description = "Crawl mode: full, incremental, or targeted", DefaultValueFactory = _ => "incremental" };
     var runStepOpt = new Option<string?>("--step") { Description = "Step name to run (required when mode is targeted)" };
+    var runDeleteMetaOpt = new Option<bool>("--delete-existing-meta") { Description = "Delete all .meta.json sidecars before crawling (forces a full crawl; useful after a sidecar format change)" };
     var runConfigOpt = new Option<string?>("--config") { Description = "Path to crawler-config.json" };
 
     var runCommand = new Command("run", "Run the crawler over all configured scan roots");
     runCommand.Add(runModeOpt);
     runCommand.Add(runStepOpt);
+    runCommand.Add(runDeleteMetaOpt);
     runCommand.Add(runConfigOpt);
     runCommand.SetAction(async (parseResult, ct) =>
     {
         return await RunCommand.RunAsync(
             parseResult.GetValue(runModeOpt)!,
             parseResult.GetValue(runStepOpt),
+            deleteExistingMeta: parseResult.GetValue(runDeleteMetaOpt),
             parseResult.GetValue(runConfigOpt));
     });
 

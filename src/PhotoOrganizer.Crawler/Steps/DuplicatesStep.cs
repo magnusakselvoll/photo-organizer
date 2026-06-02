@@ -21,6 +21,14 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
     [GeneratedRegex(@"\s+copy(\s+\d+)?$", RegexOptions.IgnoreCase)]
     private static partial Regex CopySuffixPattern();
 
+    // Extensions that browsers can render natively. RAW formats (.orf, .cr2, .cr3, .arw, .nef, .rw2)
+    // and container formats (.heic, .tiff) are excluded — the server serves them as
+    // application/octet-stream and they cannot be displayed in a <img> element.
+    private static readonly HashSet<string> BrowserDisplayableExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp",
+    };
+
     // Edit suffixes to strip, ordered longest-first to avoid partial matches.
     private static readonly string[] EditSuffixes =
     [
@@ -96,9 +104,13 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
                 entries.Add((filePath, sidecar, folderType, lastModified));
             }
 
-            // Determine preferred: edits > originals > mixed, then most recently modified, then alphabetical
+            // Determine preferred: browser-displayable first, then edits > originals > mixed,
+            // then most recently modified, then alphabetical.
+            // Displayability is the primary key so the grid and slideshow always show a
+            // file the browser can actually render (RAW formats cannot be shown in <img>).
             var preferred = entries
-                .OrderBy(e => FolderTypePriority(e.FolderType))
+                .OrderBy(e => DisplayablePriority(e.FilePath))
+                .ThenBy(e => FolderTypePriority(e.FolderType))
                 .ThenByDescending(e => e.LastModified)
                 .ThenBy(e => e.FilePath, StringComparer.OrdinalIgnoreCase)
                 .First();
@@ -139,6 +151,9 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
 
         return name.ToLowerInvariant();
     }
+
+    private static int DisplayablePriority(string filePath) =>
+        BrowserDisplayableExtensions.Contains(Path.GetExtension(filePath)) ? 0 : 1;
 
     private static int FolderTypePriority(string folderType) => folderType switch
     {

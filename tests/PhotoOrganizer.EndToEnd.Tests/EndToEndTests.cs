@@ -62,7 +62,8 @@ public class EndToEndTests
 
         foreach (var jpg in jpgs)
         {
-            var sidecarPath = Path.ChangeExtension(jpg, null) + ".meta.json";
+            // Sidecar format: <filename>.<ext>.meta.json (e.g. IMG_1234.jpg.meta.json)
+            var sidecarPath = jpg + ".meta.json";
             Assert.IsTrue(File.Exists(sidecarPath), $"Missing sidecar for {Path.GetFileName(jpg)}");
         }
     }

@@ -219,6 +219,78 @@ public class DuplicatesStepTests
         Assert.IsFalse(store.WrittenSidecars["/photos/photo_edit.jpg"].IsPreferred);
     }
 
+    // ---- Displayability preference ----
+
+    [TestMethod]
+    public async Task JpegPreferredOverRawInSameFolder()
+    {
+        // In a RAW+JPEG shooting situation, the JPEG should be preferred even though it
+        // comes before the ORF alphabetically and both are in the same folder/type.
+        var store = new InMemorySidecarStore();
+        store.FolderSidecars["/originals"] = new FolderSidecar { Label = "Originals", Type = "originals", Enabled = true };
+
+        var step = new DuplicatesStep();
+        var context = new BatchProcessingContext
+        {
+            FilePaths = ["/originals/photo.orf", "/originals/photo.jpg"],
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue
+        };
+
+        await step.ExecuteAsync(context);
+
+        Assert.IsTrue(store.WrittenSidecars["/originals/photo.jpg"].IsPreferred,
+            "JPEG should be preferred over RAW");
+        Assert.IsFalse(store.WrittenSidecars["/originals/photo.orf"].IsPreferred,
+            "RAW should not be preferred when a JPEG sibling exists");
+    }
+
+    [TestMethod]
+    public async Task DisplayableBeatsNonDisplayableEvenAcrossFolderTypes()
+    {
+        // A JPEG original should beat a RAW-only edit because displayability is the primary key.
+        var store = new InMemorySidecarStore();
+        store.FolderSidecars["/originals"] = new FolderSidecar { Label = "Originals", Type = "originals", Enabled = true };
+        store.FolderSidecars["/edits"] = new FolderSidecar { Label = "Edits", Type = "edits", Enabled = true };
+
+        var step = new DuplicatesStep();
+        var context = new BatchProcessingContext
+        {
+            FilePaths = ["/originals/photo.jpg", "/edits/photo.orf"],
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue
+        };
+
+        await step.ExecuteAsync(context);
+
+        Assert.IsTrue(store.WrittenSidecars["/originals/photo.jpg"].IsPreferred,
+            "Displayable JPEG in originals should beat non-displayable RAW in edits");
+        Assert.IsFalse(store.WrittenSidecars["/edits/photo.orf"].IsPreferred);
+    }
+
+    [TestMethod]
+    public async Task DisplayableEditPreferredOverDisplayableOriginal()
+    {
+        // When both are displayable, folder type should still decide (edits > originals).
+        var store = new InMemorySidecarStore();
+        store.FolderSidecars["/originals"] = new FolderSidecar { Label = "Originals", Type = "originals", Enabled = true };
+        store.FolderSidecars["/edits"] = new FolderSidecar { Label = "Edits", Type = "edits", Enabled = true };
+
+        var step = new DuplicatesStep();
+        var context = new BatchProcessingContext
+        {
+            FilePaths = ["/originals/photo.jpg", "/edits/photo.jpg"],
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue
+        };
+
+        await step.ExecuteAsync(context);
+
+        Assert.IsTrue(store.WrittenSidecars["/edits/photo.jpg"].IsPreferred,
+            "Edit JPEG should be preferred over original JPEG");
+        Assert.IsFalse(store.WrittenSidecars["/originals/photo.jpg"].IsPreferred);
+    }
+
     // ---- Cleanup ----
 
     [TestMethod]

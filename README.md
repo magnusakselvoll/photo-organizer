@@ -69,7 +69,8 @@ dotnet run --project src/PhotoOrganizer.Server
 **Seed and run the crawler** (writes sidecar metadata alongside your photos):
 
 ```sh
-# Initialise a subfolder (creates _folder.json and runs a full crawl on that folder)
+# Initialise a subfolder (creates _folder.json and crawls all configured roots so
+# cross-folder duplicate detection works from the start)
 dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos/originals --label "Originals"
 dotnet run --project src/PhotoOrganizer.Crawler -- init /path/to/photos/edits --label "Edits" --type edits
 
@@ -78,6 +79,11 @@ dotnet run --project src/PhotoOrganizer.Crawler -- run
 
 # Full re-crawl
 dotnet run --project src/PhotoOrganizer.Crawler -- run --mode full
+
+# If you are upgrading from an older version that used the old sidecar naming
+# scheme (<name>.meta.json instead of <name>.<ext>.meta.json), delete and
+# regenerate all sidecars with:
+dotnet run --project src/PhotoOrganizer.Crawler -- run --delete-existing-meta
 ```
 
 Open [http://localhost:6192](http://localhost:6192) in your browser.

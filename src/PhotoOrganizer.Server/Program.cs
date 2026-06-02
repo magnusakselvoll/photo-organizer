@@ -6,9 +6,9 @@ using PhotoOrganizer.Application.Folders;
 using PhotoOrganizer.Application.Photos;
 using PhotoOrganizer.Domain.Interfaces;
 using PhotoOrganizer.Infrastructure.Crawler;
+using PhotoOrganizer.Infrastructure.Indexing;
 using PhotoOrganizer.Infrastructure.Services;
 using PhotoOrganizer.Infrastructure.Sidecars;
-using PhotoOrganizer.Infrastructure.Storage;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -23,11 +23,16 @@ builder.Host.UseSerilog();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CORS: allow both the Vite dev origin (6173) and the integrated server origin (6192).
+// Driven by config (Cors:AllowedOrigins) so deployed origins can be added without rebuilding.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["http://localhost:6173", "http://localhost:6192"];
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:6173")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -38,8 +43,15 @@ builder.Services.AddSingleton<ICrawlerService, CrawlerService>();
 
 builder.Services.Configure<PhotoOrganizerSettings>(builder.Configuration.GetSection("PhotoOrganizer"));
 builder.Services.AddSingleton<ISidecarReader, SidecarReader>();
-builder.Services.AddSingleton<IFolderRepository, FileSystemFolderRepository>();
-builder.Services.AddSingleton<IPhotoRepository, FileSystemPhotoRepository>();
+
+// Progressive randomized indexer + in-memory index (replaces FileSystem*Repository).
+builder.Services.AddSingleton<PhotoIndex>();
+builder.Services.AddSingleton<PhotoIndexCache>();
+builder.Services.AddSingleton<RandomizedSidecarIndexer>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RandomizedSidecarIndexer>());
+builder.Services.AddSingleton<IFolderRepository, IndexFolderRepository>();
+builder.Services.AddSingleton<IPhotoRepository, IndexPhotoRepository>();
+
 builder.Services.AddSingleton<IFolderService, FolderService>();
 builder.Services.AddSingleton<IPhotoService, PhotoService>();
 
@@ -49,8 +61,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseCors();
 }
+
+app.UseCors();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
@@ -117,6 +130,11 @@ app.MapGet("/api/slideshow/next", async (IPhotoService service) =>
 
 app.MapGet("/api/config", (IOptions<PhotoOrganizerSettings> options) =>
     Results.Ok(options.Value));
+
+// Reports whether the background index build is complete and how many photos are indexed.
+// Useful for the UI to show a progress hint, and for integration tests to know when to assert.
+app.MapGet("/api/index/status", (PhotoIndex index) =>
+    Results.Ok(new { complete = index.IsComplete, count = index.Count }));
 
 app.MapPost("/api/crawler/start", async ([FromBody] StartCrawlRequest request, ICrawlerService service) =>
 {

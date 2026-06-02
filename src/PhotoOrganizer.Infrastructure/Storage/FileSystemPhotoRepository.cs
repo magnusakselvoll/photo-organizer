@@ -1,8 +1,7 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using PhotoOrganizer.Domain;
 using PhotoOrganizer.Domain.Interfaces;
+using PhotoOrganizer.Infrastructure.Indexing;
 
 namespace PhotoOrganizer.Infrastructure.Storage;
 
@@ -102,7 +101,7 @@ public sealed class FileSystemPhotoRepository : IPhotoRepository
 
         return new Photo
         {
-            Id = DeterministicGuid(filePath),
+            Id = PhotoId.FromFilePath(filePath),
             FilePath = filePath,
             FileName = Path.GetFileNameWithoutExtension(filePath),
             CapturedAt = sidecar?.CapturedAt,
@@ -111,11 +110,5 @@ public sealed class FileSystemPhotoRepository : IPhotoRepository
             IsPreferred = sidecar?.IsPreferred ?? false,
             Tags = (IReadOnlyList<string>?)sidecar?.Tags ?? []
         };
-    }
-
-    private static Guid DeterministicGuid(string filePath)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(filePath));
-        return new Guid(hash[..16]);
     }
 }

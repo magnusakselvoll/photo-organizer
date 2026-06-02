@@ -130,10 +130,31 @@ public class EndToEndTests
     // ─── Server assertions ────────────────────────────────────────────────────
 
     [TestMethod]
+    public async Task Server_IndexStatus_EventuallyReportsComplete()
+    {
+        await using var factory = CreateServerFactory();
+        var client = factory.CreateClient();
+
+        // Should be callable immediately (responsive before indexing finishes).
+        var earlyResponse = await client.GetAsync("/api/index/status");
+        Assert.AreEqual(HttpStatusCode.OK, earlyResponse.StatusCode);
+
+        // After waiting, should report complete with all 15 photos indexed.
+        await WaitForIndexAsync(client);
+        var doneResponse = await client.GetAsync("/api/index/status");
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var status = await doneResponse.Content.ReadFromJsonAsync<IndexStatusDto>(options);
+        Assert.IsNotNull(status);
+        Assert.IsTrue(status.Complete);
+        Assert.AreEqual(15, status.Count);
+    }
+
+    [TestMethod]
     public async Task Server_GetPhotos_AllPhotos_Returns15()
     {
         await using var factory = CreateServerFactory();
         var client = factory.CreateClient();
+        await WaitForIndexAsync(client);
 
         var response = await client.GetAsync("/api/photos?deduplicated=false");
 
@@ -148,6 +169,7 @@ public class EndToEndTests
     {
         await using var factory = CreateServerFactory();
         var client = factory.CreateClient();
+        await WaitForIndexAsync(client);
 
         var response = await client.GetAsync("/api/photos?deduplicated=true");
 
@@ -162,6 +184,7 @@ public class EndToEndTests
     {
         await using var factory = CreateServerFactory();
         var client = factory.CreateClient();
+        await WaitForIndexAsync(client);
 
         // Get a deduplicated photo to find a valid ID
         var listResponse = await client.GetAsync("/api/photos?deduplicated=true&pageSize=1");
@@ -181,6 +204,7 @@ public class EndToEndTests
     {
         await using var factory = CreateServerFactory();
         var client = factory.CreateClient();
+        await WaitForIndexAsync(client);
 
         // Build set of deduplicated IDs
         var listResponse = await client.GetAsync("/api/photos?deduplicated=true&pageSize=100");
@@ -207,9 +231,39 @@ public class EndToEndTests
                 services.PostConfigure<PhotoOrganizerSettings>(opts =>
                 {
                     opts.ScanRoots = [_photosRoot];
+                    // Use a test-scoped cache dir so each test run rebuilds from sidecars
+                    // rather than reading a stale global cache.
+                    opts.Indexing.CacheDirectory = Path.Combine(_tempDir, "server-index-cache");
+                    // Disable mid-build incremental saves in tests (faster, avoids noise).
+                    opts.Indexing.CacheWriteIntervalPhotos = 0;
                 });
             });
         });
+
+    /// <summary>Polls /api/index/status until the background indexer reports complete=true,
+    /// or throws after a timeout. Required before asserting photo counts with the new
+    /// progressive indexer.</summary>
+    private static async Task WaitForIndexAsync(HttpClient client, TimeSpan? timeout = null)
+    {
+        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(30));
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        while (DateTime.UtcNow < deadline)
+        {
+            var resp = await client.GetAsync("/api/index/status");
+            resp.EnsureSuccessStatusCode();
+            var doc = await resp.Content.ReadFromJsonAsync<IndexStatusDto>(options);
+            if (doc?.Complete == true)
+                return;
+            await Task.Delay(50);
+        }
+        throw new TimeoutException("Photo index did not complete within the timeout.");
+    }
+
+    private sealed class IndexStatusDto
+    {
+        public bool Complete { get; set; }
+        public int Count { get; set; }
+    }
 
     private static async Task<List<(string path, PhotoMetaSidecar sidecar)>> ReadAllSidecarsAsync()
     {

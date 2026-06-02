@@ -49,6 +49,10 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         if (filter.Deduplicated)
             result = Deduplicate(result);
 
+        // Display order: capturedAt descending, falling back to file-system mtime when absent.
+        // Photos still being indexed (FileModifiedAt also null) sort to the end.
+        result = result.OrderByDescending(p => p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue);
+
         return result.ToList();
     }
 

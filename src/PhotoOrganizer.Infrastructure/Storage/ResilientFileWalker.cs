@@ -28,7 +28,9 @@ public static class ResilientFileWalker
             string[] subDirs;
             try
             {
-                files = Directory.GetFiles(current, searchPattern);
+                files = Directory.GetFiles(current, searchPattern)
+                    .Where(f => (new FileInfo(f).Attributes & FileAttributes.ReparsePoint) == 0)
+                    .ToArray();
                 subDirs = Directory.GetDirectories(current)
                     .Where(d => (new DirectoryInfo(d).Attributes & FileAttributes.ReparsePoint) == 0)
                     .ToArray();

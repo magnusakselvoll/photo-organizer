@@ -43,6 +43,8 @@ public class EndToEndTests
     [ClassCleanup]
     public static void ClassCleanup()
     {
+        // ClearAllPools releases pooled SQLite file handles; required on Windows before Directory.Delete
+        SqliteConnection.ClearAllPools();
         if (Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, recursive: true);
     }

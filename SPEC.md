@@ -275,7 +275,7 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
 }
 ```
 
-`ScanRoots` are paths the server scans recursively for `_folder.json` files to discover managed source folders.
+`ScanRoots` are paths the server scans recursively for `_folder.json` files to discover managed source folders. Reparse-point directories (symlinks, junctions) and any subdirectory that raises an I/O or access-denied error during enumeration are skipped with a logged warning; the scan continues.
 
 ## 11. Non-Goals (for now)
 

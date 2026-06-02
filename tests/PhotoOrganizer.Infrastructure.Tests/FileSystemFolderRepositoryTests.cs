@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using PhotoOrganizer.Application;
 using PhotoOrganizer.Domain;
@@ -28,7 +29,7 @@ public sealed class FileSystemFolderRepositoryTests
     private FileSystemFolderRepository CreateRepository(params string[] scanRoots)
     {
         var settings = Options.Create(new PhotoOrganizerSettings { ScanRoots = scanRoots });
-        return new FileSystemFolderRepository(settings, _sidecarReader);
+        return new FileSystemFolderRepository(settings, _sidecarReader, NullLogger<FileSystemFolderRepository>.Instance);
     }
 
     private static async Task WriteFolderSidecar(string folderPath, string label, string type = "mixed", bool enabled = true)
@@ -150,5 +151,32 @@ public sealed class FileSystemFolderRepositoryTests
         var folder = await repo.GetFolderByPathAsync("/some/other/path");
 
         Assert.IsNull(folder);
+    }
+
+    [TestMethod]
+    public async Task GetAllFolders_SkipsReparsePointSubdirectory_AndStillFindsValidFolders()
+    {
+        // Valid folder with sidecar at root
+        await WriteFolderSidecar(_tempDir.FullName, "Good Folder");
+
+        // A broken directory symlink as a sibling subfolder — a reparse point whose target doesn't exist
+        var brokenLink = Path.Combine(_tempDir.FullName, "broken-link");
+        try
+        {
+            Directory.CreateSymbolicLink(brokenLink, Path.Combine(_tempDir.FullName, "does-not-exist"));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive($"Symlink creation unsupported on this host: {ex.Message}");
+            return;
+        }
+
+        var repo = CreateRepository(_tempDir.FullName);
+
+        // Must not throw; must still find the valid folder
+        var folders = await repo.GetAllFoldersAsync();
+
+        Assert.AreEqual(1, folders.Count);
+        Assert.AreEqual("Good Folder", folders[0].Label);
     }
 }

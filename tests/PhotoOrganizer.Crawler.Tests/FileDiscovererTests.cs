@@ -80,4 +80,28 @@ public class FileDiscovererTests
         var discovered = _discoverer.Discover(_tempDir);
         Assert.AreEqual(0, discovered.Count);
     }
+
+    [TestMethod]
+    public void Discover_SkipsReparsePointSubdirectory_AndStillFindsPhotos()
+    {
+        File.WriteAllText(Path.Combine(_tempDir, "photo.jpg"), "");
+
+        // A broken directory symlink as a sibling subfolder — a reparse point whose target doesn't exist
+        var brokenLink = Path.Combine(_tempDir, "broken-link");
+        try
+        {
+            Directory.CreateSymbolicLink(brokenLink, Path.Combine(_tempDir, "does-not-exist"));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            Assert.Inconclusive($"Symlink creation unsupported on this host: {ex.Message}");
+            return;
+        }
+
+        // Must not throw; must still find the valid photo
+        var discovered = _discoverer.Discover(_tempDir);
+
+        Assert.AreEqual(1, discovered.Count);
+        Assert.AreEqual("photo.jpg", Path.GetFileName(discovered[0].FilePath));
+    }
 }

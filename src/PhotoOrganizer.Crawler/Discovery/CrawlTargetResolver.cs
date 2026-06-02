@@ -29,7 +29,7 @@ public sealed class CrawlTargetResolver : ICrawlTargetResolver
 
             // Discover all _folder.json files beneath the scan root (mirrors FileSystemFolderRepository)
             var unitMap = new Dictionary<string, FolderSidecar>(StringComparer.OrdinalIgnoreCase);
-            foreach (var sidecarFile in Directory.EnumerateFiles(scanRoot, "_folder.json", SearchOption.AllDirectories))
+            foreach (var sidecarFile in ResilientFileWalker.EnumerateFiles(scanRoot, "_folder.json"))
             {
                 var dir = Path.GetDirectoryName(sidecarFile);
                 if (dir is null)

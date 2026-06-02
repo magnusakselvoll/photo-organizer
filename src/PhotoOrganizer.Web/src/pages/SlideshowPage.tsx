@@ -4,13 +4,18 @@ import { getConfig } from '../api/client';
 import type { SlideshowConfigDto } from '../api/types';
 import { useSlideshow } from '../hooks/useSlideshow';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
+import { useOverlayMessage } from '../hooks/useOverlayMessage';
 import { SlideshowImage } from '../components/SlideshowImage';
+import { PhotoInfoPanel } from '../components/PhotoInfoPanel';
+import { ShortcutHelp } from '../components/ShortcutHelp';
 import { generateKenBurnsConfig } from '../utils/kenBurns';
+import { nextDuration, formatDuration } from '../utils/duration';
 import type { KenBurnsConfig } from '../utils/kenBurns';
 import type { PhotoDto } from '../api/types';
 
-const DEFAULT_CONFIG: SlideshowConfigDto = { intervalSeconds: 8, transitionMs: 500 };
+const DEFAULT_CONFIG: SlideshowConfigDto = { intervalSeconds: 30, transitionMs: 500 };
 const CONTROLS_HIDE_DELAY_MS = 3_000;
+const INFO_DURATION_MS = 10_000;
 
 interface DisplayState {
   photo: PhotoDto;
@@ -22,14 +27,21 @@ export default function SlideshowPage() {
   const navigate = useNavigate();
   const [config, setConfig] = useState<SlideshowConfigDto>(DEFAULT_CONFIG);
 
+  // intervalSeconds is mutable at runtime via + / - keys.
+  // intervalMs is derived from it and drives both the slideshow timer and Ken Burns duration.
+  // Declared before the config effect so setIntervalSeconds is in scope there.
+  const [intervalSeconds, setIntervalSeconds] = useState<number>(DEFAULT_CONFIG.intervalSeconds);
+
   // Load config once on mount; fall back to defaults on error
   useEffect(() => {
     getConfig()
-      .then(c => setConfig(c.slideshow))
+      .then(c => {
+        setConfig(c.slideshow);
+        setIntervalSeconds(c.slideshow.intervalSeconds);
+      })
       .catch(() => { /* use defaults */ });
   }, []);
-
-  const intervalMs = config.intervalSeconds * 1000;
+  const intervalMs = intervalSeconds * 1000;
   const transitionMs = config.transitionMs;
 
   const slideshow = useSlideshow({ intervalMs });
@@ -78,12 +90,53 @@ export default function SlideshowPage() {
     };
   }, []);
 
+  // Feedback overlay — shown briefly on keyboard actions (and for 10s on info / help)
+  const overlay = useOverlayMessage();
+
   const handleExit = useCallback(() => navigate('/'), [navigate]);
+
+  // Pause/resume — also shows an overlay
+  const handleTogglePause = useCallback(() => {
+    slideshow.togglePause();
+    // After toggling, paused will flip — show what the new state will be
+    overlay.showMessage(slideshow.paused ? 'Playing' : 'Paused');
+  }, [slideshow, overlay]);
+
+  // Duration adjustment
+  const handleIncreaseDuration = useCallback(() => {
+    const next = nextDuration(intervalSeconds, 1);
+    setIntervalSeconds(next);
+    overlay.showMessage(`Display time: ${formatDuration(next)}`);
+  }, [intervalSeconds, overlay]);
+
+  const handleDecreaseDuration = useCallback(() => {
+    const next = nextDuration(intervalSeconds, -1);
+    setIntervalSeconds(next);
+    overlay.showMessage(`Display time: ${formatDuration(next)}`);
+  }, [intervalSeconds, overlay]);
+
+  // Info panel
+  const handleShowInfo = useCallback(() => {
+    if (!currentDisplay) return;
+    overlay.showMessage(
+      <PhotoInfoPanel photo={currentDisplay.photo} intervalSeconds={intervalSeconds} />,
+      INFO_DURATION_MS,
+    );
+  }, [currentDisplay, intervalSeconds, overlay]);
+
+  // Shortcut help
+  const handleShowHelp = useCallback(() => {
+    overlay.showMessage(<ShortcutHelp />, INFO_DURATION_MS);
+  }, [overlay]);
 
   useKeyboardNavigation({
     onNext: slideshow.next,
     onPrevious: slideshow.previous,
-    onTogglePause: slideshow.togglePause,
+    onTogglePause: handleTogglePause,
+    onIncreaseDuration: handleIncreaseDuration,
+    onDecreaseDuration: handleDecreaseDuration,
+    onShowInfo: handleShowInfo,
+    onShowHelp: handleShowHelp,
     onExit: handleExit,
   });
 
@@ -125,14 +178,21 @@ export default function SlideshowPage() {
         <div className="slideshow-error-indicator" title="Network error — retrying">⚠</div>
       )}
 
+      {/* Feedback / info overlay */}
+      {overlay.message && (
+        <div className="slideshow-overlay">
+          {overlay.message}
+        </div>
+      )}
+
       {/* Controls overlay */}
       <div className={`slideshow-controls${controlsVisible ? ' visible' : ''}`}>
         <div className="slideshow-controls-inner">
           <button className="slideshow-control-btn" onClick={slideshow.previous} title="Previous (←)">‹</button>
-          <button className="slideshow-control-btn" onClick={slideshow.togglePause} title={slideshow.paused ? 'Resume (P)' : 'Pause (P)'}>
+          <button className="slideshow-control-btn" onClick={handleTogglePause} title={slideshow.paused ? 'Resume (Space)' : 'Pause (Space)'}>
             {slideshow.paused ? '▶' : '⏸'}
           </button>
-          <button className="slideshow-control-btn" onClick={slideshow.next} title="Next (→ or Space)">›</button>
+          <button className="slideshow-control-btn" onClick={slideshow.next} title="Next (→)">›</button>
           <button className="slideshow-control-btn slideshow-exit-ctrl" onClick={handleExit} title="Exit (Esc)">✕</button>
         </div>
       </div>

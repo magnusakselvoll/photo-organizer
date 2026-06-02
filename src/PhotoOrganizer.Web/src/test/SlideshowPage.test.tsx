@@ -12,6 +12,7 @@ const mockPhoto1 = {
   duplicateGroupId: null,
   isPreferred: true,
   tags: [],
+  versions: [],
 };
 
 const mockPhoto2 = {
@@ -23,6 +24,7 @@ const mockPhoto2 = {
   duplicateGroupId: null,
   isPreferred: true,
   tags: [],
+  versions: [],
 };
 
 vi.mock('../api/client', () => ({

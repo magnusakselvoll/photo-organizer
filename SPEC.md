@@ -94,9 +94,9 @@ Placed in the root of each source folder.
 | `enabled` | Yes | boolean | Whether to include in indexing |
 | `type` | No | `originals` \| `edits` \| `mixed` | Content type; defaults to `mixed` |
 
-### File-level sidecar: `<photoname>.meta.json`
+### File-level sidecar: `<photoname>.<ext>.meta.json`
 
-One per photo file, same directory.
+One per photo file, same directory. The sidecar filename appends `.meta.json` to the **full** photo filename (including the extension), so `IMG_1234.orf` and `IMG_1234.jpg` each get their own distinct sidecar (`IMG_1234.orf.meta.json` and `IMG_1234.jpg.meta.json`).
 
 ```json
 {
@@ -158,20 +158,24 @@ Steps are executed in dependency order. After each step completes on a file, the
 | `duplicates` | 1 | `metadata` | Group photos by normalised filename, assign `duplicateGroupId`, mark preferred version |
 
 **Duplicate detection algorithm** (within the `duplicates` step):
-1. Index all photos across all enabled folders
+1. Index all photos across all enabled folders (the batch step always runs over all discovered paths, so cross-folder grouping works when `crawler run` or `crawler init` covers all roots)
 2. Normalise file name: strip extension, strip known edit suffixes (`_edit`, `_retouched`, `-hdr`), lowercase
 3. Group photos sharing the same normalised name → one `duplicateGroupId`
-4. Within a group, prefer `edits` folder type over `originals`
+4. Within a group, prefer the version the browser can display, then prefer by folder type (`edits` > `originals` > mixed), then most-recently-modified, then alphabetical path
+   - **Browser-displayable** extensions: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.avif`, `.bmp`
+   - Non-displayable: RAW formats (`.orf`, `.cr2`, `.cr3`, `.arw`, `.nef`, `.rw2`) and `.heic`, `.tiff`/`.tif`
 5. Store `duplicateGroupId` and `isPreferred` in each photo's sidecar
 
 ### 6.4 Crawl Modes
 
 | Mode | Trigger | What it does |
 |------|---------|--------------|
-| **Init** | `crawler init <path>` | Write `_folder.json`, then full-crawl that folder |
+| **Init** | `crawler init <path>` | Write `_folder.json`, add to config, then crawl **all configured roots** incrementally (so cross-folder duplicate detection sees every folder) |
 | **Full** | `crawler run --mode full` | Scan all folders, run all steps on all files |
 | **Incremental** | `crawler run` (default) / scheduled | Scan for new/changed/deleted files; run all steps on changed files |
 | **Targeted** | `crawler run --mode targeted --step <name>` | Run a specific step (and its dependents) on all files where the step hasn't run or has an older version |
+
+Both `init` and `run` accept `--delete-existing-meta` to delete all `*.meta.json` sidecars under the roots before crawling (forces a full re-crawl). Use this once after upgrading from the old sidecar naming scheme.
 
 ### 6.5 Change Detection (Tiered)
 
@@ -223,7 +227,7 @@ Base path: `/api`
 |--------|------|-------------|
 | GET | `/folders` | List discovered source folders |
 | GET | `/photos` | List photos (supports filtering, pagination) |
-| GET | `/photos/{id}` | Get photo metadata |
+| GET | `/photos/{id}` | Get photo metadata (includes `versions` list of all duplicate-group siblings, ordered preferred first) |
 | GET | `/photos/{id}/image` | Serve the photo file |
 | GET | `/slideshow/next` | Next photo for slideshow (respects duplicate preference) |
 | GET | `/config` | Runtime configuration |

@@ -27,7 +27,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_ValidJson_ReturnsPopulatedSidecar()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
         var capturedAt = new DateTimeOffset(2023, 7, 14, 18, 30, 0, TimeSpan.FromHours(2));
         var groupId = Guid.NewGuid();
 
@@ -65,7 +65,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_MalformedJson_ThrowsSidecarParsingException()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
         await File.WriteAllTextAsync(sidecarPath, "{ this is not valid json }");
 
         try
@@ -80,7 +80,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_UnknownFields_DoesNotFail()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
         await File.WriteAllTextAsync(sidecarPath, """
             {
               "version": 1,
@@ -140,7 +140,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_PreviousVersion_MissingFields_UsesDefaults()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
         var capturedAt = new DateTimeOffset(2022, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         await File.WriteAllTextAsync(sidecarPath, $$"""
@@ -164,7 +164,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_WithCrawlSteps_DeserializesSteps()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
         var metadataCompletedAt = new DateTimeOffset(2024, 3, 10, 12, 0, 0, TimeSpan.Zero);
         var duplicatesCompletedAt = new DateTimeOffset(2024, 3, 10, 12, 5, 0, TimeSpan.Zero);
 
@@ -193,7 +193,7 @@ public sealed class SidecarReaderTests
     public async Task ReadPhotoMeta_FutureVersion_UnknownFields_DoesNotThrow()
     {
         var photoPath = Path.Combine(_tempDir.FullName, "test.jpg");
-        var sidecarPath = Path.Combine(_tempDir.FullName, "test.meta.json");
+        var sidecarPath = Path.Combine(_tempDir.FullName, "test.jpg.meta.json");
 
         await File.WriteAllTextAsync(sidecarPath, """
             {

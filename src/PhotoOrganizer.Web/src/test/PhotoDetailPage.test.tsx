@@ -12,6 +12,7 @@ const mockPhoto = {
   duplicateGroupId: null,
   isPreferred: true,
   tags: ['vacation', 'summer'],
+  versions: [],
 };
 
 vi.mock('../api/client', () => ({

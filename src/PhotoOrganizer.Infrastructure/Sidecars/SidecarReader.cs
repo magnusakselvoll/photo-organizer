@@ -49,7 +49,7 @@ public sealed class SidecarReader : ISidecarReader
     private static string GetPhotoMetaPath(string photoFilePath)
     {
         var dir = Path.GetDirectoryName(photoFilePath) ?? string.Empty;
-        var nameWithoutExt = Path.GetFileNameWithoutExtension(photoFilePath);
-        return Path.Combine(dir, $"{nameWithoutExt}.meta.json");
+        var fileName = Path.GetFileName(photoFilePath);
+        return Path.Combine(dir, $"{fileName}.meta.json");
     }
 }

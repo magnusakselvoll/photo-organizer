@@ -7,7 +7,7 @@ public static class InitCommand
 {
     public static async Task<int> RunAsync(
         string folderPath, string label, string type, bool enabled,
-        bool addToConfig, string? configPath)
+        bool addToConfig, bool deleteExistingMeta, string? configPath)
     {
         if (!Directory.Exists(folderPath))
         {
@@ -46,9 +46,32 @@ public static class InitCommand
             }
         }
 
+        // Crawl across all configured roots so cross-folder duplicate detection works.
         var runConfig = await ConfigLoader.LoadAsync(configPath);
+        var allRoots = runConfig.ScanRoots
+            .Where(Directory.Exists)
+            .ToList();
+
+        // Ensure the just-initialized folder is included even if --no-add-to-config was given.
+        if (!allRoots.Contains(absolutePath, StringComparer.OrdinalIgnoreCase))
+            allRoots.Add(absolutePath);
+
+        if (deleteExistingMeta)
+        {
+            Log.Information("--delete-existing-meta: deleting all .meta.json files before crawl");
+            MetaSidecarCleaner.DeleteAll(allRoots);
+        }
+
         using var services = CrawlerServices.Build(runConfig);
-        await services.Orchestrator.RunAsync([absolutePath], fullMode: true);
+
+        // Run incrementally so already-indexed folders are not fully re-processed, but all
+        // discovered files participate in the batch duplicate-detection step.
+        // --delete-existing-meta wipes all sidecars, so a full crawl is required.
+        var fullMode = deleteExistingMeta;
+        if (deleteExistingMeta)
+            Log.Information("--delete-existing-meta forces a full crawl");
+
+        await services.Orchestrator.RunAsync(allRoots, fullMode: fullMode);
         return 0;
     }
 }

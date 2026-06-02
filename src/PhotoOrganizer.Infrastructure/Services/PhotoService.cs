@@ -15,7 +15,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         var items = filtered
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
-            .Select(ToDto)
+            .Select(p => ToDto(p))
             .ToList();
 
         return new PhotoPageDto
@@ -30,7 +30,30 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
     public async Task<PhotoDto?> GetPhotoByIdAsync(Guid id)
     {
         var photo = await repository.GetByIdAsync(id);
-        return photo is null ? null : ToDto(photo);
+        if (photo is null)
+            return null;
+
+        // Populate sibling versions when the photo belongs to a duplicate group.
+        IReadOnlyList<PhotoVersionDto> versions = [];
+        if (photo.DuplicateGroupId is not null)
+        {
+            var all = await repository.GetAllPhotosAsync();
+            versions = all
+                .Where(p => p.DuplicateGroupId == photo.DuplicateGroupId)
+                .OrderByDescending(p => p.IsPreferred)
+                .ThenBy(p => p.FilePath, StringComparer.OrdinalIgnoreCase)
+                .Select(p => new PhotoVersionDto
+                {
+                    Id = p.Id,
+                    FileName = p.FileName,
+                    FolderType = p.FolderType.ToString(),
+                    FilePath = p.FilePath,
+                    IsPreferred = p.IsPreferred,
+                })
+                .ToList();
+        }
+
+        return ToDto(photo, versions);
     }
 
     private static List<Photo> ApplyFilters(IReadOnlyList<Photo> photos, PhotoFilter filter)
@@ -72,7 +95,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         }
     }
 
-    private static PhotoDto ToDto(Photo photo) => new()
+    private static PhotoDto ToDto(Photo photo, IReadOnlyList<PhotoVersionDto>? versions = null) => new()
     {
         Id = photo.Id,
         FilePath = photo.FilePath,
@@ -81,6 +104,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         FolderType = photo.FolderType.ToString(),
         DuplicateGroupId = photo.DuplicateGroupId,
         IsPreferred = photo.IsPreferred,
-        Tags = photo.Tags
+        Tags = photo.Tags,
+        Versions = versions ?? [],
     };
 }

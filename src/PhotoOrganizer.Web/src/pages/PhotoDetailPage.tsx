@@ -55,7 +55,22 @@ export default function PhotoDetailPage() {
             <dd>{photo.tags.join(', ')}</dd>
           </>
         )}
-        {photo.duplicateGroupId && (
+        {(photo.versions ?? []).length > 1 && (
+          <>
+            <dt>Versions</dt>
+            <dd>
+              <ul className="detail-versions">
+                {photo.versions.map(v => (
+                  <li key={v.id}>
+                    {v.fileName} ({v.folderType})
+                    {v.isPreferred && ' ★'}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+        {photo.duplicateGroupId && photo.versions.length <= 1 && (
           <>
             <dt>Duplicate group</dt>
             <dd>

@@ -43,6 +43,22 @@ export function PhotoInfoPanel({ photo, intervalSeconds }: PhotoInfoPanelProps) 
         <dt>Path</dt>
         <dd className="slideshow-info-path">{photo.filePath}</dd>
 
+        {(photo.versions ?? []).length > 1 && (
+          <>
+            <dt>Versions</dt>
+            <dd>
+              <ul className="slideshow-info-versions">
+                {(photo.versions ?? []).map(v => (
+                  <li key={v.id} className={v.isPreferred ? 'version-preferred' : undefined}>
+                    {v.fileName} <span className="version-folder-type">({v.folderType})</span>
+                    {v.isPreferred && <span className="version-badge"> ★</span>}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
+
         <dt>Display time</dt>
         <dd>{intervalSeconds}s</dd>
       </dl>

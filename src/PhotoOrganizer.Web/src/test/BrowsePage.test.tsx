@@ -19,6 +19,7 @@ const mockPage = {
       duplicateGroupId: null,
       isPreferred: true,
       tags: [],
+      versions: [],
     },
   ],
   totalCount: 1,

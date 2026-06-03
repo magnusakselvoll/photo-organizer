@@ -16,12 +16,12 @@ export function generateKenBurnsConfig(intervalMs: number): KenBurnsConfig {
   // Random zoom direction: in or out
   const zoomIn = Math.random() > 0.5;
 
-  // Stronger scale range: 1.08-1.12 to 1.18-1.28
-  const scaleSmall = randomInRange(1.08, 1.12);
-  const scaleLarge = randomInRange(1.18, 1.28);
+  // Scale range: 1.0-1.05 to 1.22-1.30 (~22-30% total zoom, clearly perceptible)
+  const scaleSmall = randomInRange(1.0, 1.05);
+  const scaleLarge = randomInRange(1.22, 1.30);
 
-  // Random pan direction with randomized amount (3-6%)
-  const panAmount = randomInRange(3, 6);
+  // Random pan direction with randomized amount (8-14%)
+  const panAmount = randomInRange(8, 14);
   const panDirections = [
     { x: panAmount, y: 0 },                           // right
     { x: -panAmount, y: 0 },                          // left
@@ -34,7 +34,7 @@ export function generateKenBurnsConfig(intervalMs: number): KenBurnsConfig {
   ];
   const pan = panDirections[Math.floor(Math.random() * panDirections.length)];
 
-  // Duration slightly overshoots the slideshow interval to avoid freezing at the end
+  // Duration spans the full slide interval so the drift continuously fills the display time
   const duration = intervalMs / 1000;
 
   if (zoomIn) {

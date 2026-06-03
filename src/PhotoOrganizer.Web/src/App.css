@@ -307,7 +307,7 @@
 
 /* Ken Burns animation via CSS custom properties */
 .slideshow-image.ken-burns {
-  animation: ken-burns var(--kb-duration, 8s) ease-in-out forwards;
+  animation: ken-burns var(--kb-duration, 8s) linear forwards;
   transform-origin: center center;
 }
 

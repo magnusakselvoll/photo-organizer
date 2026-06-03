@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using PhotoOrganizer.Application;
 using PhotoOrganizer.Application.Crawler;
 using PhotoOrganizer.Application.Folders;
+using PhotoOrganizer.Application.Index;
 using PhotoOrganizer.Application.Photos;
 using PhotoOrganizer.Domain.Interfaces;
 using PhotoOrganizer.Infrastructure.Crawler;
@@ -147,6 +148,67 @@ app.MapGet("/api/config", (IOptions<PhotoOrganizerSettings> options) =>
 // Useful for the UI to show a progress hint, and for integration tests to know when to assert.
 app.MapGet("/api/index/status", (PhotoIndex index) =>
     Results.Ok(new { complete = index.IsComplete, count = index.Count }));
+
+app.MapGet("/api/index/stats", (PhotoIndex index) =>
+{
+    var photos = index.SnapshotPhotos();
+    var folders = index.SnapshotFolders();
+
+    // Assign each photo to its nearest-ancestor source folder (mirrors the crawler's unit logic).
+    var folderPathSet = folders.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var photoCounts = folders.ToDictionary(f => f.Path, _ => 0, StringComparer.OrdinalIgnoreCase);
+
+    foreach (var photo in photos)
+    {
+        var dir = Path.GetDirectoryName(photo.FilePath) ?? string.Empty;
+        var current = dir;
+        while (!string.IsNullOrEmpty(current))
+        {
+            if (folderPathSet.Contains(current))
+            {
+                photoCounts[current]++;
+                break;
+            }
+            var parent = Path.GetDirectoryName(current);
+            if (parent == current) break;
+            current = parent ?? string.Empty;
+        }
+    }
+
+    // Sum sidecar file sizes for all known photos and folders without a full tree scan.
+    long sidecarBytes = 0;
+    foreach (var photo in photos)
+    {
+        var sidecarPath = photo.FilePath + ".meta.json";
+        try { if (File.Exists(sidecarPath)) sidecarBytes += new FileInfo(sidecarPath).Length; }
+        catch { /* best-effort */ }
+    }
+    foreach (var folder in folders)
+    {
+        var folderSidecar = Path.Combine(folder.Path, "_folder.json");
+        try { if (File.Exists(folderSidecar)) sidecarBytes += new FileInfo(folderSidecar).Length; }
+        catch { /* best-effort */ }
+    }
+
+    var dto = new IndexStatsDto
+    {
+        Complete = index.IsComplete,
+        TotalPhotoCount = photos.Count,
+        SidecarSizeBytes = sidecarBytes,
+        Folders = folders
+            .OrderBy(f => f.Label, StringComparer.CurrentCultureIgnoreCase)
+            .Select(f => new FolderStatsDto
+            {
+                Path = f.Path,
+                Label = f.Label,
+                Type = f.Type.ToString(),
+                PhotoCount = photoCounts[f.Path]
+            })
+            .ToList()
+    };
+
+    return Results.Ok(dto);
+});
 
 app.MapPost("/api/crawler/start", async ([FromBody] StartCrawlRequest request, ICrawlerService service) =>
 {

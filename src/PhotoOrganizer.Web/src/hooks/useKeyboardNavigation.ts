@@ -7,6 +7,7 @@ export interface KeyboardNavigationConfig {
   onIncreaseDuration?: () => void;
   onDecreaseDuration?: () => void;
   onShowInfo?: () => void;
+  onShowIndex?: () => void;
   onShowHelp?: () => void;
   onExit?: () => void;
   enabled?: boolean;
@@ -19,6 +20,7 @@ export function useKeyboardNavigation({
   onIncreaseDuration,
   onDecreaseDuration,
   onShowInfo,
+  onShowIndex,
   onShowHelp,
   onExit,
   enabled = true,
@@ -64,6 +66,11 @@ export function useKeyboardNavigation({
         event.preventDefault();
         onShowInfo?.();
         break;
+      case 'x':
+      case 'X':
+        event.preventDefault();
+        onShowIndex?.();
+        break;
       case '?':
       case '/':
         event.preventDefault();
@@ -74,7 +81,7 @@ export function useKeyboardNavigation({
         onExit?.();
         break;
     }
-  }, [enabled, onNext, onPrevious, onTogglePause, onIncreaseDuration, onDecreaseDuration, onShowInfo, onShowHelp, onExit]);
+  }, [enabled, onNext, onPrevious, onTogglePause, onIncreaseDuration, onDecreaseDuration, onShowInfo, onShowIndex, onShowHelp, onExit]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);

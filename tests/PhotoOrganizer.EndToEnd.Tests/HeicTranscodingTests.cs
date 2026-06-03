@@ -67,6 +67,13 @@ public class HeicTranscodingTests
         Assert.AreEqual("image/jpeg", imageResponse.Content.Headers.ContentType?.MediaType,
             "HEIC should be transcoded to JPEG so all browsers can display it");
 
+        // Verify the Content-Disposition header is inline and carries a real filename.
+        var contentDisposition = imageResponse.Content.Headers.ContentDisposition;
+        Assert.AreEqual("inline", contentDisposition?.DispositionType,
+            "Image should be served inline so browsers render it in-page");
+        Assert.IsFalse(string.IsNullOrEmpty(contentDisposition?.FileName),
+            "Download name should not be empty");
+
         // Verify the response body is a valid JPEG (starts with the JPEG magic bytes FF D8 FF).
         var bytes = await imageResponse.Content.ReadAsByteArrayAsync();
         Assert.IsTrue(bytes.Length >= 3, "Image response body is too short");

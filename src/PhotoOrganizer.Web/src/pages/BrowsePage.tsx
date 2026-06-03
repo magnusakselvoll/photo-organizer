@@ -1,67 +1,84 @@
-import { useState, useEffect, useReducer } from 'react';
-import { getFolders, getPhotos } from '../api/client';
-import type { FolderDto, PhotoPageDto } from '../api/types';
+import { useEffect, useRef, useState } from 'react';
+import { getFolders, getIndexStatus, getPhotos } from '../api/client';
+import type { FolderDto } from '../api/types';
 import PhotoGrid from '../components/PhotoGrid';
-import Pagination from '../components/Pagination';
+import { useInfinitePhotos } from '../hooks/useInfinitePhotos';
 
-type FetchState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'success'; data: PhotoPageDto }
-  | { status: 'error'; message: string };
-
-type FetchAction =
-  | { type: 'start' }
-  | { type: 'success'; data: PhotoPageDto }
-  | { type: 'error'; message: string };
-
-function fetchReducer(_: FetchState, action: FetchAction): FetchState {
-  switch (action.type) {
-    case 'start': return { status: 'loading' };
-    case 'success': return { status: 'success', data: action.data };
-    case 'error': return { status: 'error', message: action.message };
-  }
-}
+/** How many photos to fetch when polling for new arrivals. */
+const LIVE_FETCH_LIMIT = 50;
+/** Polling interval in ms. Stops when the index reports complete. */
+const POLL_INTERVAL_MS = 4000;
 
 export default function BrowsePage() {
   const [folders, setFolders] = useState<FolderDto[]>([]);
-  const [fetchState, dispatch] = useReducer(fetchReducer, { status: 'idle' });
 
   const [folder, setFolder] = useState('');
   const [type, setType] = useState('all');
   const [deduplicatedOnly, setDeduplicatedOnly] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  const { items, hasMore, isLoading, error, totalCount, loadMore, mergeNewest } =
+    useInfinitePhotos({ folder, type, deduplicated: deduplicatedOnly });
+
+  // Track the last-seen index count so we can detect growth.
+  const lastIndexCount = useRef<number | null>(null);
+  const indexComplete = useRef(false);
 
   useEffect(() => {
     getFolders().then(setFolders).catch(() => {});
   }, []);
 
+  // Live-update poller: polls /api/index/status every 4 s; when the count
+  // grows, fetches the newest page and merges any new arrivals at the top.
   useEffect(() => {
-    dispatch({ type: 'start' });
-    getPhotos({
-      folder: folder || undefined,
-      type: type !== 'all' ? type : undefined,
-      deduplicated: deduplicatedOnly,
-      page: currentPage,
-    })
-      .then(data => dispatch({ type: 'success', data }))
-      .catch(e => dispatch({ type: 'error', message: String(e) }));
-  }, [folder, type, deduplicatedOnly, currentPage]);
+    if (indexComplete.current) return;
+
+    const id = setInterval(async () => {
+      try {
+        const status = await getIndexStatus();
+        const prev = lastIndexCount.current;
+        lastIndexCount.current = status.count;
+
+        if (status.complete) {
+          indexComplete.current = true;
+          clearInterval(id);
+        }
+
+        if (prev !== null && status.count > prev) {
+          // New photos indexed — fetch the freshest page and prepend unknowns.
+          const page = await getPhotos({
+            folder: folder || undefined,
+            type: type !== 'all' ? type : undefined,
+            deduplicated: deduplicatedOnly,
+            limit: LIVE_FETCH_LIMIT,
+          });
+          mergeNewest(page.items);
+        }
+      } catch {
+        // Ignore transient network errors; poller will retry.
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(id);
+  // Re-run the poller whenever filters change so we fetch against the correct set.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folder, type, deduplicatedOnly]);
 
   function handleFolderChange(value: string) {
     setFolder(value);
-    setCurrentPage(1);
+    lastIndexCount.current = null;
   }
 
   function handleTypeChange(value: string) {
     setType(value);
-    setCurrentPage(1);
+    lastIndexCount.current = null;
   }
 
   function handleDeduplicatedChange(value: boolean) {
     setDeduplicatedOnly(value);
-    setCurrentPage(1);
+    lastIndexCount.current = null;
   }
+
+  const showEmpty = !isLoading && !error && items.length === 0;
 
   return (
     <div className="browse-page">
@@ -92,26 +109,24 @@ export default function BrowsePage() {
           />
           Deduplicated only
         </label>
+        {totalCount > 0 && (
+          <span className="photo-count">{totalCount.toLocaleString()} photos</span>
+        )}
       </div>
 
-      {fetchState.status === 'error' && (
-        <p className="error">{fetchState.message}</p>
-      )}
-      {fetchState.status === 'loading' && <p className="status">Loading…</p>}
-      {fetchState.status === 'success' && fetchState.data.items.length === 0 && (
-        <p className="status">No photos found.</p>
-      )}
-      {fetchState.status === 'success' && fetchState.data.items.length > 0 && (
-        <PhotoGrid photos={fetchState.data.items} />
-      )}
-      {fetchState.status === 'success' && (
-        <Pagination
-          page={currentPage}
-          pageSize={fetchState.data.pageSize}
-          totalCount={fetchState.data.totalCount}
-          onPageChange={setCurrentPage}
+      {error && <p className="error">{error}</p>}
+      {showEmpty && <p className="status">No photos found.</p>}
+
+      {items.length > 0 && (
+        <PhotoGrid
+          photos={items}
+          hasMore={hasMore}
+          isLoading={isLoading}
+          onLoadMore={loadMore}
         />
       )}
+
+      {isLoading && items.length === 0 && <p className="status">Loading…</p>}
     </div>
   );
 }

@@ -33,6 +33,8 @@ export interface PhotoPageDto {
   totalCount: number;
   page: number;
   pageSize: number;
+  /** Opaque cursor for the next keyset page. Null when the end of the list has been reached. */
+  nextCursor: string | null;
 }
 
 export interface PhotoQuery {
@@ -41,6 +43,15 @@ export interface PhotoQuery {
   deduplicated?: boolean;
   page?: number;
   pageSize?: number;
+  /** Keyset cursor — when set, limit must also be set. */
+  cursor?: string;
+  /** Page size for cursor-based pagination. Takes precedence over page/pageSize. */
+  limit?: number;
+}
+
+export interface IndexStatusDto {
+  complete: boolean;
+  count: number;
 }
 
 export interface SlideshowConfigDto {

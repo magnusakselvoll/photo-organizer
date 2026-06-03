@@ -1,4 +1,4 @@
-import type { ConfigDto, FolderDto, IndexStatsDto, PhotoDto, PhotoPageDto, PhotoQuery } from './types';
+import type { ConfigDto, FolderDto, IndexStatusDto, IndexStatsDto, PhotoDto, PhotoPageDto, PhotoQuery } from './types';
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -21,8 +21,14 @@ export async function getPhotos(query: PhotoQuery = {}): Promise<PhotoPageDto> {
   if (query.deduplicated !== undefined) params.set('deduplicated', String(query.deduplicated));
   if (query.page !== undefined) params.set('page', String(query.page));
   if (query.pageSize !== undefined) params.set('pageSize', String(query.pageSize));
+  if (query.cursor !== undefined) params.set('cursor', query.cursor);
+  if (query.limit !== undefined) params.set('limit', String(query.limit));
   const qs = params.toString();
   return fetchJson(`/api/photos${qs ? `?${qs}` : ''}`);
+}
+
+export async function getIndexStatus(): Promise<IndexStatusDto> {
+  return fetchJson('/api/index/status');
 }
 
 export async function getPhoto(id: string): Promise<PhotoDto | null> {

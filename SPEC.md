@@ -239,11 +239,27 @@ Base path: `/api`
 
 | Param | Values | Description |
 |-------|--------|-------------|
-| `folder` | folder id | Filter by source folder |
+| `folder` | folder path | Filter by source folder |
 | `type` | `originals`, `edits`, `all` | Filter by folder type (default: `all`) |
 | `deduplicated` | `true`, `false` | Show only preferred version per group (default: `true`) |
-| `page` | int | Pagination page |
-| `pageSize` | int | Items per page |
+| `page` | int | Offset-pagination page (legacy; default: `1`) |
+| `pageSize` | int | Items per page for offset pagination (legacy; default: `50`) |
+| `cursor` | opaque string | Keyset cursor from a previous response's `nextCursor` field; omit for the first page |
+| `limit` | int | Items per keyset page; when present, cursor pagination takes precedence over `page`/`pageSize` |
+
+When `limit` is supplied the response uses **keyset (cursor) pagination**: results are a stable, non-overlapping page of at most `limit` items ordered newest-first (`capturedAt ?? fileModifiedAt ?? minValue`, with `id` as a deterministic tiebreaker). The response `nextCursor` field holds an opaque token to pass as `cursor` for the next page; `null` means the end of the list has been reached.
+
+The legacy offset path (`page`/`pageSize`) remains available for callers that need a total-count-based approach (e.g. the slideshow endpoint). The `nextCursor` field is `null` in offset-path responses.
+
+### Response: `PhotoPageDto`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | `PhotoDto[]` | Photos in this page |
+| `totalCount` | int | Total number of photos matching the filter (always present) |
+| `page` | int | Current page number (offset path) |
+| `pageSize` | int | Page size used (offset path) |
+| `nextCursor` | string \| null | Cursor for the next keyset page; `null` at end of list or when using the offset path |
 
 ## 8. Slideshow
 
@@ -260,6 +276,17 @@ Base path: `/api`
 - Routes: `/` browse grid, `/slideshow` full-screen slideshow, `/photo/:id` detail view
 - API client in `src/api/client.ts`; shared types in `src/api/types.ts`
 - Development proxy: frontend at `:6173`, backend at `:6192`
+
+### Browse grid
+
+The browse grid (`BrowsePage` → `PhotoGrid`) uses **virtualized infinite scroll** rather than offset pagination:
+
+- **Virtualizer**: `@tanstack/react-virtual` (`useVirtualizer`) windows rows so only visible rows ± overscan are in the DOM, regardless of total photo count.
+- **Infinite fetch**: `useInfinitePhotos` hook (hand-rolled, no TanStack Query) uses keyset cursor pagination to fetch 50 photos at a time; `loadMore()` is triggered when the virtualizer detects the user is within ~3 rows of the loaded tail.
+- **Columns**: derived dynamically from container width via `ResizeObserver`, using the same `minmax(180px, 1fr)` / 12 px gap layout as the CSS grid.
+- **Sort**: newest-first (`capturedAt ?? fileModifiedAt`, with `id` as a tiebreaker). This is the server default and requires no client-side sorting.
+- **Live updates**: `BrowsePage` polls `GET /api/index/status` every 4 s while the index is still building. When the count grows, it fetches the newest page and prepends unknown arrivals via `mergeNewest()`. Polling stops when `complete` is `true`.
+- **Filters**: folder, type (originals/edits/all), deduplicated-only; changing any filter resets the infinite list and re-fetches from the top.
 
 ## 10. Configuration
 

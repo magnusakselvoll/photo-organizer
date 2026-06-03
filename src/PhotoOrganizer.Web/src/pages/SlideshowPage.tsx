@@ -7,6 +7,7 @@ import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import { useOverlayMessage } from '../hooks/useOverlayMessage';
 import { SlideshowImage } from '../components/SlideshowImage';
 import { PhotoInfoPanel } from '../components/PhotoInfoPanel';
+import { IndexInfoPanel } from '../components/IndexInfoPanel';
 import { ShortcutHelp } from '../components/ShortcutHelp';
 import { generateKenBurnsConfig } from '../utils/kenBurns';
 import { nextDuration, formatDuration } from '../utils/duration';
@@ -124,6 +125,11 @@ export default function SlideshowPage() {
     );
   }, [currentDisplay, intervalSeconds, overlay]);
 
+  // Index info
+  const handleShowIndex = useCallback(() => {
+    overlay.showMessage(<IndexInfoPanel />, INFO_DURATION_MS);
+  }, [overlay]);
+
   // Shortcut help
   const handleShowHelp = useCallback(() => {
     overlay.showMessage(<ShortcutHelp />, INFO_DURATION_MS);
@@ -136,6 +142,7 @@ export default function SlideshowPage() {
     onIncreaseDuration: handleIncreaseDuration,
     onDecreaseDuration: handleDecreaseDuration,
     onShowInfo: handleShowInfo,
+    onShowIndex: handleShowIndex,
     onShowHelp: handleShowHelp,
     onExit: handleExit,
   });
@@ -193,6 +200,7 @@ export default function SlideshowPage() {
             {slideshow.paused ? '▶' : '⏸'}
           </button>
           <button className="slideshow-control-btn" onClick={slideshow.next} title="Next (→)">›</button>
+          <button className="slideshow-control-btn slideshow-index-ctrl" onClick={handleShowIndex} title="Index (X)">≡</button>
           <button className="slideshow-control-btn slideshow-exit-ctrl" onClick={handleExit} title="Exit (Esc)">✕</button>
         </div>
       </div>

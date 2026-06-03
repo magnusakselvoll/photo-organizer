@@ -52,3 +52,17 @@ export interface ConfigDto {
   scanRoots: string[];
   slideshow: SlideshowConfigDto;
 }
+
+export interface FolderStatsDto {
+  path: string;
+  label: string;
+  type: FolderType;
+  photoCount: number;
+}
+
+export interface IndexStatsDto {
+  complete: boolean;
+  totalPhotoCount: number;
+  sidecarSizeBytes: number;
+  folders: FolderStatsDto[];
+}

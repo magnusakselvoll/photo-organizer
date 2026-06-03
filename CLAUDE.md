@@ -61,7 +61,7 @@ Always use GitHub Flow when working on issues:
 3. **Push** the branch and **create a PR**:
    - **Ask before creating the PR** — the user may have feedback based on console output or code
    - Reference the issue in the PR body with `Closes #<issue-number>` to auto-close on merge
-   - Pass `--title` and `--body` as plain strings to `gh pr create` — no heredocs, no backticks
+   - Pass `--title` as a plain string; pass `--body` via a `$(cat <<'EOF' ... EOF)` heredoc — this prevents zsh from expanding backticks or `$()` inside the body as shell commands
    - Always pass `--head <branch-name> --base main` to `gh pr create`
 
 4. **Merge** after review (squash merge preferred for clean history)

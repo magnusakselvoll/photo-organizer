@@ -59,21 +59,14 @@ public sealed class RandomizedSidecarIndexerTests
         var settings = new PhotoOrganizerSettings
         {
             ScanRoots = [scanRoot],
-            Indexing = new IndexingSettings
-            {
-                MaxParallelism = parallelism,
-                CacheDirectory = " ", // disable cache in tests
-                CacheWriteIntervalPhotos = 0
-            }
+            Indexing = new IndexingSettings { MaxParallelism = parallelism }
         };
 
         var index = new PhotoIndex();
-        var cache = new PhotoIndexCache(Options.Create(settings), NullLogger<PhotoIndexCache>.Instance);
         var indexer = new RandomizedSidecarIndexer(
             Options.Create(settings),
             new SidecarReader(),
             index,
-            cache,
             NullLogger<RandomizedSidecarIndexer>.Instance);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -292,15 +285,13 @@ public sealed class RandomizedSidecarIndexerTests
         var settings = new PhotoOrganizerSettings
         {
             ScanRoots = [rootA, rootB],
-            Indexing = new IndexingSettings { MaxParallelism = 2, CacheDirectory = " ", CacheWriteIntervalPhotos = 0 }
+            Indexing = new IndexingSettings { MaxParallelism = 2 }
         };
         var index = new PhotoIndex();
-        var cache = new PhotoIndexCache(Options.Create(settings), NullLogger<PhotoIndexCache>.Instance);
         var indexer = new RandomizedSidecarIndexer(
             Options.Create(settings),
             new SidecarReader(),
             index,
-            cache,
             NullLogger<RandomizedSidecarIndexer>.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

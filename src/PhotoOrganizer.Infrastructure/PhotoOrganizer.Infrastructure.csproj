@@ -11,4 +11,8 @@
     <ProjectReference Include="..\PhotoOrganizer.Application\PhotoOrganizer.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PhotoOrganizer.Infrastructure.Tests" />
+  </ItemGroup>
+
 </Project>

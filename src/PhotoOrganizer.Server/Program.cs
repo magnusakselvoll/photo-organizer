@@ -26,6 +26,12 @@ builder.Host.UseSerilog();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// CSRF: mutating endpoints require this custom header. A non-CORS-safelisted header forces a
+// CORS preflight; the origin allowlist below then blocks disallowed origins so their preflight
+// fails before the POST is ever sent. Simple cross-site requests cannot set custom headers,
+// preventing blind-CSRF attacks while the app is loopback-only (the bind is never 0.0.0.0).
+const string CsrfHeader = "X-Requested-With";
+
 // CORS: allow both the Vite dev origin (6173) and the integrated server origin (6192).
 // Driven by config (Cors:AllowedOrigins) so deployed origins can be added without rebuilding.
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -231,8 +237,17 @@ app.MapGet("/api/index/stats", (PhotoIndex index) =>
     return Results.Ok(dto);
 });
 
-app.MapPost("/api/crawler/start", async ([FromBody] StartCrawlRequest request, ICrawlerService service) =>
+app.MapPost("/api/crawler/start", async (HttpRequest httpRequest, [FromBody] StartCrawlRequest request, ICrawlerService service) =>
 {
+    // CSRF guard: require the custom header (forces a CORS preflight for cross-origin callers).
+    if (string.IsNullOrWhiteSpace(httpRequest.Headers[CsrfHeader]))
+        return Results.StatusCode(StatusCodes.Status403Forbidden);
+
+    // Allowlist Mode and Step to prevent argument injection into the crawler process.
+    var validationError = StartCrawlValidation.Validate(request);
+    if (validationError is not null)
+        return Results.BadRequest(validationError);
+
     var started = await service.StartCrawlAsync(request);
     return started ? Results.Accepted() : Results.Conflict("Crawler is already running");
 });

@@ -24,6 +24,34 @@ public class CrawlerEndpointTests
         });
     }
 
+    /// <summary>Posts JSON to the crawler start endpoint with the required CSRF header.</summary>
+    private static Task<HttpResponseMessage> PostStartAsync(HttpClient client, StartCrawlRequest request)
+    {
+        var message = new HttpRequestMessage(HttpMethod.Post, "/api/crawler/start")
+        {
+            Content = JsonContent.Create(request)
+        };
+        message.Headers.Add("X-Requested-With", "fetch");
+        return client.SendAsync(message);
+    }
+
+    // --- CSRF guard ---
+
+    [TestMethod]
+    public async Task PostCrawlerStart_WithoutCsrfHeader_Returns403()
+    {
+        var fake = new FakeCrawlerService { StartResult = true };
+        await using var factory = CreateFactory(fake);
+        var client = factory.CreateClient();
+
+        // PostAsJsonAsync does not add X-Requested-With — should be rejected
+        var response = await client.PostAsJsonAsync("/api/crawler/start", new StartCrawlRequest { Mode = "incremental" });
+
+        Assert.AreEqual(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    // --- Happy path ---
+
     [TestMethod]
     public async Task PostCrawlerStart_WhenNotRunning_Returns202()
     {
@@ -31,7 +59,7 @@ public class CrawlerEndpointTests
         await using var factory = CreateFactory(fake);
         var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/crawler/start", new StartCrawlRequest { Mode = "incremental" });
+        var response = await PostStartAsync(client, new StartCrawlRequest { Mode = "incremental" });
 
         Assert.AreEqual(HttpStatusCode.Accepted, response.StatusCode);
     }
@@ -43,10 +71,50 @@ public class CrawlerEndpointTests
         await using var factory = CreateFactory(fake);
         var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/crawler/start", new StartCrawlRequest { Mode = "incremental" });
+        var response = await PostStartAsync(client, new StartCrawlRequest { Mode = "incremental" });
 
         Assert.AreEqual(HttpStatusCode.Conflict, response.StatusCode);
     }
+
+    // --- Allowlist validation ---
+
+    [TestMethod]
+    public async Task PostCrawlerStart_WithInvalidMode_Returns400()
+    {
+        var fake = new FakeCrawlerService { StartResult = true };
+        await using var factory = CreateFactory(fake);
+        var client = factory.CreateClient();
+
+        var response = await PostStartAsync(client, new StartCrawlRequest { Mode = "evil" });
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task PostCrawlerStart_WithInvalidStep_Returns400()
+    {
+        var fake = new FakeCrawlerService { StartResult = true };
+        await using var factory = CreateFactory(fake);
+        var client = factory.CreateClient();
+
+        var response = await PostStartAsync(client, new StartCrawlRequest { Mode = "targeted", Step = "duplicates --config evil" });
+
+        Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [TestMethod]
+    public async Task PostCrawlerStart_WithValidStep_Returns202()
+    {
+        var fake = new FakeCrawlerService { StartResult = true };
+        await using var factory = CreateFactory(fake);
+        var client = factory.CreateClient();
+
+        var response = await PostStartAsync(client, new StartCrawlRequest { Mode = "targeted", Step = "duplicates" });
+
+        Assert.AreEqual(HttpStatusCode.Accepted, response.StatusCode);
+    }
+
+    // --- Status ---
 
     [TestMethod]
     public async Task GetCrawlerStatus_ReturnsStatusDto()

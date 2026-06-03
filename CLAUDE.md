@@ -23,6 +23,9 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
   - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
   - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
+  - **Process launch**: crawler is started via `ProcessStartInfo.ArgumentList` (not `Arguments`) so embedded spaces or flags in user-supplied fields cannot re-tokenize into extra CLI arguments.
+- **Security — `POST /api/crawler/start`**: requires the `X-Requested-With` header (CSRF guard; forces CORS preflight, blocking disallowed origins); `Mode`/`Step` are validated against the allowlist in `StartCrawlValidation` (`src/PhotoOrganizer.Application/Crawler/StartCrawlValidation.cs`) — valid modes: `full`, `incremental`, `targeted`; valid steps: `metadata`, `duplicates`. Returns 403 if header absent, 400 if mode/step invalid.
+- **Security — bind address**: server binds loopback-only by default (dev: `localhost:6192` via `launchSettings.json`; published: Kestrel default `localhost:5000`). Do not bind to `0.0.0.0` without auth + rate limiting; see SPEC.md §10.
 
 ## Patterns to Follow
 

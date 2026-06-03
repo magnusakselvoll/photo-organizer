@@ -57,33 +57,39 @@ public sealed class CrawlerService(IOptions<CrawlerSettings> options) : ICrawler
         if (current.Status == "running")
             return false;
 
-        var args = BuildArgs(request);
+        var tokens = BuildArgs(request, _settings.ConfigPath);
         var psi = new ProcessStartInfo
         {
             FileName = _settings.ExecutablePath,
-            Arguments = args,
             UseShellExecute = false,
             RedirectStandardOutput = false,
             RedirectStandardError = false,
         };
+        foreach (var token in tokens)
+            psi.ArgumentList.Add(token);
 
         Process.Start(psi);
         return true;
     }
 
-    private string BuildArgs(StartCrawlRequest request)
+    /// <summary>
+    /// Returns the ordered list of argument tokens to pass to the crawler process.
+    /// Each element is one token — no re-tokenization can occur (cf. ArgumentList vs Arguments).
+    /// Internal so unit tests can verify token isolation directly.
+    /// </summary>
+    internal static IReadOnlyList<string> BuildArgs(StartCrawlRequest request, string? configPath)
     {
-        var parts = new List<string> { "run", "--mode", request.Mode };
+        var tokens = new List<string> { "run", "--mode", request.Mode };
         if (!string.IsNullOrWhiteSpace(request.Step))
         {
-            parts.Add("--step");
-            parts.Add(request.Step);
+            tokens.Add("--step");
+            tokens.Add(request.Step);
         }
-        if (!string.IsNullOrWhiteSpace(_settings.ConfigPath))
+        if (!string.IsNullOrWhiteSpace(configPath))
         {
-            parts.Add("--config");
-            parts.Add(_settings.ConfigPath);
+            tokens.Add("--config");
+            tokens.Add(configPath);
         }
-        return string.Join(' ', parts);
+        return tokens;
     }
 }

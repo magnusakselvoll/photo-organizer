@@ -5,7 +5,7 @@ import '@testing-library/jest-dom/vitest';
 // The virtualizer's DOM-measurement logic is not exercisable in jsdom and
 // is tested indirectly through the pure helper functions instead.
 if (typeof ResizeObserver === 'undefined') {
-  global.ResizeObserver = class ResizeObserver {
+  (globalThis as unknown as Record<string, unknown>).ResizeObserver = class ResizeObserver {
     observe() {}
     unobserve() {}
     disconnect() {}

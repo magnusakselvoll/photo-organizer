@@ -43,6 +43,12 @@ export interface PhotoQuery {
   folder?: string;
   type?: string;
   deduplicated?: boolean;
+  /** Case-insensitive substring match on the photo's filename (with extension). */
+  fileName?: string;
+  /** Inclusive lower bound on effective date — ISO date string (YYYY-MM-DD). */
+  dateFrom?: string;
+  /** Inclusive upper bound on effective date (whole day) — ISO date string (YYYY-MM-DD). */
+  dateTo?: string;
   page?: number;
   pageSize?: number;
   /** Keyset cursor — when set, limit must also be set. */

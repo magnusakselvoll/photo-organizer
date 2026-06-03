@@ -1,4 +1,49 @@
-import { columnsForWidth } from '../hooks/useInfinitePhotos';
+import { columnsForWidth, filterKey } from '../hooks/useInfinitePhotos';
+import type { InfinitePhotosFilters } from '../hooks/useInfinitePhotos';
+
+// ─── filterKey ────────────────────────────────────────────────────────────────
+// Every field in InfinitePhotosFilters must appear in filterKey so that a change
+// to any filter triggers a hook reset/refetch. This test is the regression guard
+// for that invariant.
+
+const BASE: InfinitePhotosFilters = {
+  folder: '',
+  type: 'all',
+  deduplicated: true,
+  fileName: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+describe('filterKey', () => {
+  test('same filters produce the same key', () => {
+    expect(filterKey(BASE)).toBe(filterKey({ ...BASE }));
+  });
+
+  test('changing folder produces a different key', () => {
+    expect(filterKey({ ...BASE, folder: '/photos/2024' })).not.toBe(filterKey(BASE));
+  });
+
+  test('changing type produces a different key', () => {
+    expect(filterKey({ ...BASE, type: 'Originals' })).not.toBe(filterKey(BASE));
+  });
+
+  test('changing deduplicated produces a different key', () => {
+    expect(filterKey({ ...BASE, deduplicated: false })).not.toBe(filterKey(BASE));
+  });
+
+  test('changing fileName produces a different key', () => {
+    expect(filterKey({ ...BASE, fileName: 'IMG' })).not.toBe(filterKey(BASE));
+  });
+
+  test('changing dateFrom produces a different key', () => {
+    expect(filterKey({ ...BASE, dateFrom: '2024-01-01' })).not.toBe(filterKey(BASE));
+  });
+
+  test('changing dateTo produces a different key', () => {
+    expect(filterKey({ ...BASE, dateTo: '2024-12-31' })).not.toBe(filterKey(BASE));
+  });
+});
 
 // ─── columnsForWidth ──────────────────────────────────────────────────────────
 

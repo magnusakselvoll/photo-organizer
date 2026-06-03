@@ -246,6 +246,9 @@ Base path: `/api`
 | `pageSize` | int | Items per page for offset pagination (legacy; default: `50`) |
 | `cursor` | opaque string | Keyset cursor from a previous response's `nextCursor` field; omit for the first page |
 | `limit` | int | Items per keyset page; when present, cursor pagination takes precedence over `page`/`pageSize` |
+| `fileName` | string | Case-insensitive substring filter on the photo's filename including extension (e.g. `IMG`, `.jpg`) |
+| `dateFrom` | `YYYY-MM-DD` | Inclusive lower bound on effective date (`capturedAt ?? fileModifiedAt`); photos with no effective date are excluded when any date bound is set |
+| `dateTo` | `YYYY-MM-DD` | Inclusive upper bound on effective date (whole day included); photos with no effective date are excluded when any date bound is set |
 
 When `limit` is supplied the response uses **keyset (cursor) pagination**: results are a stable, non-overlapping page of at most `limit` items ordered newest-first (`capturedAt ?? fileModifiedAt ?? minValue`, with `id` as a deterministic tiebreaker). The response `nextCursor` field holds an opaque token to pass as `cursor` for the next page; `null` means the end of the list has been reached.
 
@@ -286,7 +289,7 @@ The browse grid (`BrowsePage` → `PhotoGrid`) uses **virtualized infinite scrol
 - **Columns**: derived dynamically from container width via `ResizeObserver`, using the same `minmax(180px, 1fr)` / 12 px gap layout as the CSS grid.
 - **Sort**: newest-first (`capturedAt ?? fileModifiedAt`, with `id` as a tiebreaker). This is the server default and requires no client-side sorting. Each `PhotoDto` includes an `effectiveDate` field (the sort key: `capturedAt ?? fileModifiedAt`) so the client can read the date at any scroll position without an extra request.
 - **Live updates**: `BrowsePage` polls `GET /api/index/status` every 4 s while the index is still building. When the count grows, it fetches the newest page and prepends unknown arrivals via `mergeNewest()`. Polling stops when `complete` is `true`.
-- **Filters**: folder, type (originals/edits/all), deduplicated-only; changing any filter resets the infinite list and re-fetches from the top.
+- **Filters**: folder, type (originals/edits/all), deduplicated-only, filename search (case-insensitive substring), date range (from/to, day-granularity on effective date). All filter state is reflected in URL query params via `useSearchParams` so filtered views are deep-linkable and survive refresh. Filename input is debounced 300 ms. Changing any filter resets the infinite list and re-fetches from the top.
 - **Fast-scroll date overlay**: while the user scrolls the grid a floating month/year pill appears showing where in time the current scroll position sits, derived from the topmost visible photo's `effectiveDate`. It fades out automatically after scrolling stops.
 
 ## 10. Configuration

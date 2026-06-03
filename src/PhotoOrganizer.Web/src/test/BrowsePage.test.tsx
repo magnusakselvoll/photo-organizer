@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import BrowsePage from '../pages/BrowsePage';
@@ -57,9 +57,10 @@ beforeEach(() => {
   vi.mocked(client.getIndexStatus).mockResolvedValue(mockIndexStatus);
 });
 
-function renderBrowse() {
+/** Render BrowsePage with an optional initial URL (e.g. '/?folder=x'). */
+function renderBrowse(initialEntry = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <BrowsePage />
     </MemoryRouter>,
   );
@@ -112,6 +113,54 @@ test('unchecking deduplicated only refetches with deduplicated false', async () 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ deduplicated: false }),
+    );
+  });
+});
+
+test('typing a filename search refetches with the debounced fileName', async () => {
+  renderBrowse();
+  await screen.findByText('test.jpg');
+
+  // Clear previous getPhotos calls so we can assert on the new one only.
+  vi.mocked(client.getPhotos).mockClear();
+
+  const searchInput = screen.getByRole('searchbox');
+  await userEvent.type(searchInput, 'IMG');
+
+  // The filename input is debounced (300 ms). waitFor polls for up to 1000 ms
+  // by default, which is enough time for the debounce to fire.
+  await waitFor(() => {
+    expect(client.getPhotos).toHaveBeenCalledWith(
+      expect.objectContaining({ fileName: 'IMG' }),
+    );
+  });
+});
+
+test('setting a date range refetches with dateFrom and dateTo', async () => {
+  renderBrowse();
+  await screen.findByText('test.jpg');
+
+  // Labels "From" and "To" implicitly associate with their nested date inputs.
+  const fromInput = screen.getByLabelText('From');
+  const toInput = screen.getByLabelText('To');
+
+  fireEvent.change(fromInput, { target: { value: '2024-01-01' } });
+  fireEvent.change(toInput, { target: { value: '2024-12-31' } });
+
+  await waitFor(() => {
+    expect(client.getPhotos).toHaveBeenCalledWith(
+      expect.objectContaining({ dateFrom: '2024-01-01', dateTo: '2024-12-31' }),
+    );
+  });
+});
+
+test('filters are initialised from URL query params on mount', async () => {
+  renderBrowse('/?type=Originals&deduplicated=false');
+  await screen.findByText('test.jpg');
+
+  await waitFor(() => {
+    expect(client.getPhotos).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'Originals', deduplicated: false }),
     );
   });
 });

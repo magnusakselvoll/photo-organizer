@@ -10,10 +10,10 @@ describe('generateKenBurnsConfig', () => {
       const { scaleFrom, scaleTo } = cfg;
       const small = Math.min(scaleFrom, scaleTo);
       const large = Math.max(scaleFrom, scaleTo);
-      expect(small).toBeGreaterThanOrEqual(1.08);
-      expect(small).toBeLessThanOrEqual(1.12);
-      expect(large).toBeGreaterThanOrEqual(1.18);
-      expect(large).toBeLessThanOrEqual(1.28);
+      expect(small).toBeGreaterThanOrEqual(1.0);
+      expect(small).toBeLessThanOrEqual(1.05);
+      expect(large).toBeGreaterThanOrEqual(1.22);
+      expect(large).toBeLessThanOrEqual(1.30);
     }
   });
 

@@ -13,6 +13,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Backend**: .NET 10, ASP.NET Core, C#; **Frontend**: React + TypeScript, Vite, pnpm
 - **Ports (dev)**: Backend `:6192`, Frontend `:6173`
 - **Image transcoding**: HEIC/HEIF files are transcoded to JPEG on the fly in the `/api/photos/{id}/image` endpoint using `Magick.NET-Q8-AnyCPU` (`MagickImageTranscoder` in `src/PhotoOrganizer.Infrastructure/Imaging/`). The `IImageTranscoder` interface lives in `src/PhotoOrganizer.Domain/Interfaces/`. No caching — each request transcodes fresh; add caching in a future pass.
+- **Displayability**: `DisplayableImageFormats` (`src/PhotoOrganizer.Domain/DisplayableImageFormats.cs`) is the single source of truth for which formats are servable. `PhotoService.ApplyFilters` filters every grid and slideshow listing to displayable photos only (browser-native + transcodable). Non-displayable files (RAW, bare TIFF) are never served in listings but remain downloadable via the version panel's `/api/photos/{id}/image` endpoint. `MagickImageTranscoder` and `DuplicatesStep` both delegate to this helper.
 - **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
   - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
   - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
@@ -60,7 +61,7 @@ Always use GitHub Flow when working on issues:
 3. **Push** the branch and **create a PR**:
    - **Ask before creating the PR** — the user may have feedback based on console output or code
    - Reference the issue in the PR body with `Closes #<issue-number>` to auto-close on merge
-   - Pass `--title` and `--body` as plain strings to `gh pr create` — no heredocs, no backticks
+   - Pass `--title` as a plain string; pass `--body` via a `$(cat <<'EOF' ... EOF)` heredoc — this prevents zsh from expanding backticks or `$()` inside the body as shell commands
    - Always pass `--head <branch-name> --base main` to `gh pr create`
 
 4. **Merge** after review (squash merge preferred for clean history)

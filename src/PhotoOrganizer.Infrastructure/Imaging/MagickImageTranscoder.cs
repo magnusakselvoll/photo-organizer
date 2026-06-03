@@ -1,4 +1,5 @@
 using ImageMagick;
+using PhotoOrganizer.Domain;
 using PhotoOrganizer.Domain.Interfaces;
 
 namespace PhotoOrganizer.Infrastructure.Imaging;
@@ -8,14 +9,8 @@ namespace PhotoOrganizer.Infrastructure.Imaging;
 /// </summary>
 public class MagickImageTranscoder : IImageTranscoder
 {
-    private static readonly HashSet<string> TranscodableExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".heic",
-        ".heif",
-    };
-
     public bool IsTranscodable(string filePath) =>
-        TranscodableExtensions.Contains(Path.GetExtension(filePath));
+        DisplayableImageFormats.IsTranscodable(filePath);
 
     public Task<Stream> TranscodeToJpegAsync(string filePath, CancellationToken cancellationToken = default)
     {

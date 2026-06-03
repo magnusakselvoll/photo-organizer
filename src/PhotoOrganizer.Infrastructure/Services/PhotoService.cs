@@ -60,6 +60,11 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
     {
         IEnumerable<Photo> result = photos;
 
+        // Only serve photos the browser can actually display (natively or via transcoding).
+        // Non-displayable files (RAW formats, bare TIFF) are never shown in the grid or
+        // slideshow but remain accessible via the version panel's /image download endpoint.
+        result = result.Where(p => DisplayableImageFormats.IsDisplayable(p.FilePath));
+
         if (filter.Folder is not null)
             result = result.Where(p => p.FilePath.StartsWith(filter.Folder, StringComparison.OrdinalIgnoreCase));
 

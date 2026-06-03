@@ -1,3 +1,4 @@
+using System.Text;
 using PhotoOrganizer.Application.Photos;
 using PhotoOrganizer.Domain;
 using PhotoOrganizer.Domain.Interfaces;
@@ -10,8 +11,39 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
     {
         var all = await repository.GetAllPhotosAsync();
         var filtered = ApplyFilters(all, filter);
-
         var totalCount = filtered.Count;
+
+        // Keyset (cursor) path — used by the infinite-scroll grid.
+        if (filter.Limit is { } limit)
+        {
+            var (afterTicks, afterId) = filter.Cursor is not null
+                ? DecodeCursor(filter.Cursor)
+                : (long.MaxValue, Guid.Empty);
+
+            var page = filtered
+                .SkipWhile(p =>
+                {
+                    var ticks = EffectiveTicks(p);
+                    return ticks > afterTicks || (ticks == afterTicks && p.Id.CompareTo(afterId) >= 0);
+                })
+                .Take(limit)
+                .ToList();
+
+            var nextCursor = page.Count == limit
+                ? EncodeCursor(page[^1])
+                : null;
+
+            return new PhotoPageDto
+            {
+                Items = page.Select(p => ToDto(p)).ToList(),
+                TotalCount = totalCount,
+                Page = 1,
+                PageSize = limit,
+                NextCursor = nextCursor,
+            };
+        }
+
+        // Legacy offset path — kept intact for slideshow and other callers.
         var items = filtered
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
@@ -23,7 +55,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
             Items = items,
             TotalCount = totalCount,
             Page = filter.Page,
-            PageSize = filter.PageSize
+            PageSize = filter.PageSize,
         };
     }
 
@@ -79,7 +111,10 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
 
         // Display order: capturedAt descending, falling back to file-system mtime when absent.
         // Photos still being indexed (FileModifiedAt also null) sort to the end.
-        result = result.OrderByDescending(p => p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue);
+        // Id is a stable tiebreaker so keyset cursors produce deterministic pages.
+        result = result
+            .OrderByDescending(p => p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(p => p.Id);
 
         return result.ToList();
     }
@@ -112,4 +147,45 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         Tags = photo.Tags,
         Versions = versions ?? [],
     };
+
+    // ─── Cursor helpers ───────────────────────────────────────────────────────
+
+    /// <summary>Returns the UTC ticks of the sort key for a photo: CapturedAt ?? FileModifiedAt ?? MinValue.</summary>
+    public static long EffectiveTicks(Photo p) =>
+        (p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue).UtcTicks;
+
+    /// <summary>
+    /// Encodes the position of <paramref name="photo"/> into an opaque base64url cursor string.
+    /// Format: "{effectiveTicks}_{id:N}" — readable in logs, collision-free.
+    /// </summary>
+    public static string EncodeCursor(Photo photo)
+    {
+        var raw = $"{EffectiveTicks(photo)}_{photo.Id:N}";
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw))
+            .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+    }
+
+    /// <summary>
+    /// Decodes an opaque cursor back to <c>(effectiveTicks, id)</c>.
+    /// Returns <c>(long.MaxValue, Guid.Empty)</c> if the cursor is malformed.
+    /// </summary>
+    public static (long Ticks, Guid Id) DecodeCursor(string cursor)
+    {
+        try
+        {
+            var padded = cursor.Replace('-', '+').Replace('_', '/');
+            var mod = padded.Length % 4;
+            if (mod != 0) padded += new string('=', 4 - mod);
+            var raw = Encoding.UTF8.GetString(Convert.FromBase64String(padded));
+            var sep = raw.IndexOf('_');
+            if (sep < 0) return (long.MaxValue, Guid.Empty);
+            var ticks = long.Parse(raw[..sep]);
+            var id = Guid.ParseExact(raw[(sep + 1)..], "N");
+            return (ticks, id);
+        }
+        catch
+        {
+            return (long.MaxValue, Guid.Empty);
+        }
+    }
 }

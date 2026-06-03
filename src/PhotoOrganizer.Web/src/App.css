@@ -22,6 +22,10 @@
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  /* Flex column so browse-page can stretch its scroll container to fill. */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Filter bar */
@@ -54,11 +58,26 @@
   font-size: 14px;
 }
 
-/* Photo grid */
-.photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
+/* Browse page — flex column so the scroll container can stretch to fill. */
+.browse-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Photo count badge in the filter bar */
+.photo-count {
+  font-size: 13px;
+  color: var(--text);
+  margin-left: auto;
+}
+
+/* Virtualized scroll container — fills remaining height below the filter bar. */
+.photo-grid-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .photo-card {
@@ -100,41 +119,6 @@
 
 .photo-card-date {
   font-size: 11px;
-  color: var(--text);
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 24px;
-}
-
-.pagination button {
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--text-h);
-  cursor: pointer;
-  font-size: 14px;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.pagination button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.pagination button:not(:disabled):hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.pagination span {
-  font-size: 14px;
   color: var(--text);
 }
 

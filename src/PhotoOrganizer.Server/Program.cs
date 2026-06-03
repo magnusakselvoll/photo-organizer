@@ -83,6 +83,8 @@ app.MapGet("/api/photos", async (
     [FromQuery] bool deduplicated = true,
     [FromQuery] int page = 1,
     [FromQuery] int pageSize = 50,
+    [FromQuery] string? cursor = null,
+    [FromQuery] int? limit = null,
     IPhotoService service = default!) =>
 {
     var filter = new PhotoFilter
@@ -91,7 +93,9 @@ app.MapGet("/api/photos", async (
         Type = type,
         Deduplicated = deduplicated,
         Page = page,
-        PageSize = pageSize
+        PageSize = pageSize,
+        Cursor = cursor,
+        Limit = limit,
     };
     var result = await service.GetPhotosAsync(filter);
     return Results.Ok(result);

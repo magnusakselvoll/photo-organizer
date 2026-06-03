@@ -25,17 +25,35 @@ const mockPage = {
   totalCount: 1,
   page: 1,
   pageSize: 50,
+  nextCursor: null,
 };
+
+const mockIndexStatus = { complete: true, count: 1 };
 
 vi.mock('../api/client', () => ({
   getFolders: vi.fn(),
   getPhotos: vi.fn(),
+  getIndexStatus: vi.fn(),
   imageUrl: (id: string) => `/api/photos/${id}/image`,
+}));
+
+// PhotoGrid uses ResizeObserver + @tanstack/react-virtual which don't work in
+// jsdom. BrowsePage tests are concerned with filter/fetch behaviour, not grid
+// layout, so we stub the grid to a simple list of filenames.
+vi.mock('../components/PhotoGrid', () => ({
+  default: ({ photos }: { photos: Array<{ id: string; fileName: string }> }) => (
+    <ul>
+      {photos.map(p => (
+        <li key={p.id}>{p.fileName}</li>
+      ))}
+    </ul>
+  ),
 }));
 
 beforeEach(() => {
   vi.mocked(client.getFolders).mockResolvedValue(mockFolders);
   vi.mocked(client.getPhotos).mockResolvedValue(mockPage);
+  vi.mocked(client.getIndexStatus).mockResolvedValue(mockIndexStatus);
 });
 
 function renderBrowse() {
@@ -56,7 +74,7 @@ test('folder options are populated from the API', async () => {
   expect(await screen.findByRole('option', { name: '2024' })).toBeInTheDocument();
 });
 
-test('changing the folder filter resets to page 1 and refetches', async () => {
+test('changing the folder filter refetches with the chosen folder', async () => {
   renderBrowse();
   await screen.findByText('test.jpg');
 
@@ -65,7 +83,7 @@ test('changing the folder filter resets to page 1 and refetches', async () => {
 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
-      expect.objectContaining({ folder: '/photos/2024', page: 1 }),
+      expect.objectContaining({ folder: '/photos/2024' }),
     );
   });
 });
@@ -79,7 +97,7 @@ test('changing the type filter refetches with the chosen type', async () => {
 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'Originals', page: 1 }),
+      expect.objectContaining({ type: 'Originals' }),
     );
   });
 });

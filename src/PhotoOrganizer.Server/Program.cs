@@ -6,6 +6,7 @@ using PhotoOrganizer.Application.Folders;
 using PhotoOrganizer.Application.Photos;
 using PhotoOrganizer.Domain.Interfaces;
 using PhotoOrganizer.Infrastructure.Crawler;
+using PhotoOrganizer.Infrastructure.Imaging;
 using PhotoOrganizer.Infrastructure.Indexing;
 using PhotoOrganizer.Infrastructure.Services;
 using PhotoOrganizer.Infrastructure.Sidecars;
@@ -43,6 +44,7 @@ builder.Services.AddSingleton<ICrawlerService, CrawlerService>();
 
 builder.Services.Configure<PhotoOrganizerSettings>(builder.Configuration.GetSection("PhotoOrganizer"));
 builder.Services.AddSingleton<ISidecarReader, SidecarReader>();
+builder.Services.AddSingleton<IImageTranscoder, MagickImageTranscoder>();
 
 // Progressive randomized indexer + in-memory index (replaces FileSystem*Repository).
 builder.Services.AddSingleton<PhotoIndex>();
@@ -100,17 +102,23 @@ app.MapGet("/api/photos/{id:guid}", async (Guid id, IPhotoService service) =>
     return photo is null ? Results.NotFound() : Results.Ok(photo);
 });
 
-app.MapGet("/api/photos/{id:guid}/image", async (Guid id, IPhotoRepository repository) =>
+app.MapGet("/api/photos/{id:guid}/image", async (Guid id, IPhotoRepository repository, IImageTranscoder transcoder, CancellationToken ct) =>
 {
     var photo = await repository.GetByIdAsync(id);
     if (photo is null)
         return Results.NotFound();
 
+    // HEIC/HEIF cannot be natively decoded by most browsers; transcode to JPEG on the fly.
+    if (transcoder.IsTranscodable(photo.FilePath))
+    {
+        var jpeg = await transcoder.TranscodeToJpegAsync(photo.FilePath, ct);
+        return Results.Stream(jpeg, "image/jpeg");
+    }
+
     var contentType = Path.GetExtension(photo.FilePath).ToLowerInvariant() switch
     {
         ".jpg" or ".jpeg" => "image/jpeg",
         ".png" => "image/png",
-        ".heic" => "image/heic",
         ".tiff" or ".tif" => "image/tiff",
         _ => "application/octet-stream"
     };

@@ -15,5 +15,8 @@
     <Content Include="..\fixtures\photos\**\*" CopyToOutputDirectory="PreserveNewest">
       <Link>fixtures\photos\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
+    <Content Include="..\fixtures\heic\**\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>fixtures\heic\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
   </ItemGroup>
 </Project>

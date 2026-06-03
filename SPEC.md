@@ -163,7 +163,8 @@ Steps are executed in dependency order. After each step completes on a file, the
 3. Group photos sharing the same normalised name → one `duplicateGroupId`
 4. Within a group, prefer the version the browser can display, then prefer by folder type (`edits` > `originals` > mixed), then most-recently-modified, then alphabetical path
    - **Browser-displayable** extensions: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.avif`, `.bmp`
-   - Non-displayable: RAW formats (`.orf`, `.cr2`, `.cr3`, `.arw`, `.nef`, `.rw2`) and `.heic`, `.tiff`/`.tif`
+   - Non-displayable: RAW formats (`.orf`, `.cr2`, `.cr3`, `.arw`, `.nef`, `.rw2`) and `.tiff`/`.tif`
+   - `.heic`/`.heif` are also not browser-native (except Safari), so they are ranked below JPEG/PNG in duplicate preference; the server transcodes them to JPEG at serve time so they display in all browsers
 5. Store `duplicateGroupId` and `isPreferred` in each photo's sidecar
 
 ### 6.4 Crawl Modes
@@ -228,7 +229,7 @@ Base path: `/api`
 | GET | `/folders` | List discovered source folders |
 | GET | `/photos` | List photos (supports filtering, pagination) |
 | GET | `/photos/{id}` | Get photo metadata (includes `versions` list of all duplicate-group siblings, ordered preferred first) |
-| GET | `/photos/{id}/image` | Serve the photo file |
+| GET | `/photos/{id}/image` | Serve the photo file; HEIC/HEIF is transcoded to JPEG on the fly |
 | GET | `/slideshow/next` | Next photo for slideshow (respects duplicate preference) |
 | GET | `/config` | Runtime configuration |
 | POST | `/crawler/start` | Trigger a crawl (`{ "mode": "full\|incremental\|targeted", "step": "..." }`) |

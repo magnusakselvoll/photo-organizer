@@ -12,6 +12,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Namespace prefix**: `PhotoOrganizer.*`
 - **Backend**: .NET 10, ASP.NET Core, C#; **Frontend**: React + TypeScript, Vite, pnpm
 - **Ports (dev)**: Backend `:6192`, Frontend `:6173`
+- **Image transcoding**: HEIC/HEIF files are transcoded to JPEG on the fly in the `/api/photos/{id}/image` endpoint using `Magick.NET-Q8-AnyCPU` (`MagickImageTranscoder` in `src/PhotoOrganizer.Infrastructure/Imaging/`). The `IImageTranscoder` interface lives in `src/PhotoOrganizer.Domain/Interfaces/`. No caching — each request transcodes fresh; add caching in a future pass.
 - **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
   - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
   - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
@@ -126,7 +127,9 @@ Committed JPEG fixtures live in `tests/fixtures/photos/`:
 
 Each subfolder has a `_folder.json` with the correct `type` so the crawler's duplicate detection logic correctly prefers `edits/` over `originals/`. Sidecars (`.meta.json`) are **not** committed; the end-to-end test creates them in a temp working copy.
 
-To regenerate fixtures: `dotnet run --project tools/PhotoOrganizer.FixtureGenerator`. The generator (`tools/PhotoOrganizer.FixtureGenerator/`) uses SixLabors.ImageSharp 3.x (Apache licensed) to write 64×64 JPEGs with EXIF data.
+HEIC fixture lives in `tests/fixtures/heic/` (separate so it doesn't disturb the photo count assertions in the main end-to-end tests). The single `IMG_heic.heic` was generated once with `sips -s format heic tests/fixtures/photos/originals/IMG_1001.jpg --out tests/fixtures/heic/IMG_heic.heic`. The `HeicTranscodingTests` integration test crawls this fixture and verifies the server returns a valid JPEG for it.
+
+To regenerate JPEG fixtures: `dotnet run --project tools/PhotoOrganizer.FixtureGenerator`. The generator (`tools/PhotoOrganizer.FixtureGenerator/`) uses SixLabors.ImageSharp 3.x (Apache licensed) to write 64×64 JPEGs with EXIF data.
 
 ## Documentation Updates
 

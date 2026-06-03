@@ -8,6 +8,7 @@ const mockPhoto = {
   filePath: '/photos/2024/test.jpg',
   fileName: 'test.jpg',
   capturedAt: '2024-06-15T10:30:00Z',
+  effectiveDate: '2024-06-15T10:30:00Z',
   folderType: 'Originals' as const,
   duplicateGroupId: null,
   isPreferred: true,

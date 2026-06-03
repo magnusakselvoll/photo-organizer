@@ -73,11 +73,45 @@
   margin-left: auto;
 }
 
-/* Virtualized scroll container — fills remaining height below the filter bar. */
+/* Wrapper takes the flex slot so the scroll container + date overlay are siblings. */
+.photo-grid-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Virtualized scroll container — fills the wrapper. */
 .photo-grid-scroll {
   flex: 1;
   overflow-y: auto;
   min-height: 0;
+}
+
+/* Fast-scroll date overlay — shown while the user scrolls, then fades out. */
+.scrub-date {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg);
+  color: var(--text-h);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.scrub-date[data-visible='true'] {
+  opacity: 1;
 }
 
 .photo-card {

@@ -15,6 +15,7 @@ const mockPage = {
       filePath: '/photos/2024/test.jpg',
       fileName: 'test.jpg',
       capturedAt: '2024-01-15T10:00:00Z',
+      effectiveDate: '2024-01-15T10:00:00Z',
       folderType: 'Originals' as const,
       duplicateGroupId: null,
       isPreferred: true,

@@ -49,7 +49,6 @@ builder.Services.AddSingleton<IImageTranscoder, MagickImageTranscoder>();
 
 // Progressive randomized indexer + in-memory index (replaces FileSystem*Repository).
 builder.Services.AddSingleton<PhotoIndex>();
-builder.Services.AddSingleton<PhotoIndexCache>();
 builder.Services.AddSingleton<RandomizedSidecarIndexer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RandomizedSidecarIndexer>());
 builder.Services.AddSingleton<IFolderRepository, IndexFolderRepository>();

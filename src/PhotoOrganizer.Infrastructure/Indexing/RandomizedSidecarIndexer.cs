@@ -28,7 +28,6 @@ public sealed class RandomizedSidecarIndexer : BackgroundService
     private readonly PhotoOrganizerSettings _settings;
     private readonly ISidecarReader _sidecarReader;
     private readonly PhotoIndex _index;
-    private readonly PhotoIndexCache _cache;
     private readonly ILogger<RandomizedSidecarIndexer> _logger;
 
     // Pending work: each entry is a directory to process plus the effective crawl-unit
@@ -40,38 +39,16 @@ public sealed class RandomizedSidecarIndexer : BackgroundService
         IOptions<PhotoOrganizerSettings> settings,
         ISidecarReader sidecarReader,
         PhotoIndex index,
-        PhotoIndexCache cache,
         ILogger<RandomizedSidecarIndexer> logger)
     {
         _settings = settings.Value;
         _sidecarReader = sidecarReader;
         _index = index;
-        _cache = cache;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        // Try loading from cache first — instant warm start.
-        if (await _cache.TryLoadAsync(_index, stoppingToken))
-        {
-            _logger.LogInformation("Photo index loaded from cache ({Count} photos, {Folders} folders)",
-                _index.Count, _index.SnapshotFolders().Count);
-            _index.MarkComplete();
-            return;
-        }
-
-        await RunIndexBuildAsync(stoppingToken);
-    }
-
-    /// <summary>Clears the index and cache, then re-runs a fresh build. Called by InvalidateCacheAsync.</summary>
-    public async Task RestartAsync()
-    {
-        _index.Clear();
-        await _cache.DeleteAsync();
-        // The hosted service lifetime owns re-triggering; callers should invalidate and let the
-        // next server restart pick it up, or inject the service and call ExecuteAsync again.
-    }
+    protected override Task ExecuteAsync(CancellationToken stoppingToken) =>
+        RunIndexBuildAsync(stoppingToken);
 
     private async Task RunIndexBuildAsync(CancellationToken cancellationToken)
     {
@@ -162,7 +139,6 @@ public sealed class RandomizedSidecarIndexer : BackgroundService
             _index.MarkComplete();
             _logger.LogInformation("Photo index build complete: {PhotoCount} photos, {FolderCount} folders",
                 _index.Count, _index.SnapshotFolders().Count);
-            await _cache.SaveAsync(_index, cancellationToken);
         }
     }
 
@@ -249,11 +225,6 @@ public sealed class RandomizedSidecarIndexer : BackgroundService
             {
                 var photo = await BuildPhotoAsync(filePath, effectiveUnit.Type);
                 _index.AddPhoto(photo);
-
-                // Periodically write the in-progress cache so a mid-build restart is cheap.
-                var interval = _settings.Indexing.CacheWriteIntervalPhotos;
-                if (interval > 0 && _index.Count % interval == 0)
-                    await _cache.SaveAsync(_index, cancellationToken);
             }
             catch (Exception ex)
             {

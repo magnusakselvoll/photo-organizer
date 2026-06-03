@@ -232,11 +232,6 @@ public class EndToEndTests
                 services.PostConfigure<PhotoOrganizerSettings>(opts =>
                 {
                     opts.ScanRoots = [_photosRoot];
-                    // Use a test-scoped cache dir so each test run rebuilds from sidecars
-                    // rather than reading a stale global cache.
-                    opts.Indexing.CacheDirectory = Path.Combine(_tempDir, "server-index-cache");
-                    // Disable mid-build incremental saves in tests (faster, avoids noise).
-                    opts.Indexing.CacheWriteIntervalPhotos = 0;
                 });
             });
         });

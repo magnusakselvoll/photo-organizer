@@ -83,8 +83,6 @@ public class HeicTranscodingTests
                 services.PostConfigure<PhotoOrganizerSettings>(opts =>
                 {
                     opts.ScanRoots = [_photosRoot];
-                    opts.Indexing.CacheDirectory = Path.Combine(_tempDir, "server-index-cache");
-                    opts.Indexing.CacheWriteIntervalPhotos = 0;
                 });
             });
         });

@@ -18,13 +18,6 @@ namespace PhotoOrganizer.Infrastructure.Indexing;
 /// </summary>
 public sealed class RandomizedSidecarIndexer : BackgroundService
 {
-    private static readonly HashSet<string> PhotoExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".heic",
-        ".cr2", ".cr3", ".orf", ".arw", ".nef", ".rw2",
-        ".tiff", ".tif"
-    };
-
     private readonly PhotoOrganizerSettings _settings;
     private readonly ISidecarReader _sidecarReader;
     private readonly PhotoIndex _index;
@@ -217,8 +210,7 @@ public sealed class RandomizedSidecarIndexer : BackgroundService
             if (cancellationToken.IsCancellationRequested)
                 return;
 
-            var ext = Path.GetExtension(filePath);
-            if (!PhotoExtensions.Contains(ext))
+            if (!SupportedPhotoExtensions.IsSupported(filePath))
                 continue;
 
             try

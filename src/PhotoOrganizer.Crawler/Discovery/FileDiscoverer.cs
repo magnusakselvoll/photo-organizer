@@ -1,21 +1,15 @@
+using PhotoOrganizer.Domain;
+
 namespace PhotoOrganizer.Crawler.Discovery;
 
 public sealed class FileDiscoverer : IFileDiscoverer
 {
-    private static readonly HashSet<string> PhotoExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".heic",
-        ".cr2", ".cr3", ".orf", ".arw", ".nef", ".rw2",
-        ".tiff", ".tif"
-    };
-
     public IReadOnlyList<DiscoveredFile> Discover(string folderPath)
     {
         var results = new List<DiscoveredFile>();
         foreach (var filePath in ResilientFileWalker.EnumerateFiles(folderPath, "*"))
         {
-            var ext = Path.GetExtension(filePath);
-            if (!PhotoExtensions.Contains(ext))
+            if (!SupportedPhotoExtensions.IsSupported(filePath))
                 continue;
 
             var info = new FileInfo(filePath);

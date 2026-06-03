@@ -39,12 +39,4 @@ public sealed class PhotoIndex
 
     /// <summary>Marks the index as fully built and ready.</summary>
     public void MarkComplete() => _isComplete = true;
-
-    /// <summary>Clears all entries and resets the completion flag (used by InvalidateCacheAsync).</summary>
-    public void Clear()
-    {
-        _photos.Clear();
-        _folders.Clear();
-        _isComplete = false;
-    }
 }

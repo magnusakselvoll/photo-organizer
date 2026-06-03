@@ -57,20 +57,6 @@ public sealed class FileSystemPhotoRepository : IPhotoRepository
         return _cacheById!.GetValueOrDefault(id);
     }
 
-    public async Task InvalidateCacheAsync()
-    {
-        await _lock.WaitAsync();
-        try
-        {
-            _cache = null;
-            _cacheById = null;
-        }
-        finally
-        {
-            _lock.Release();
-        }
-    }
-
     private async Task<List<Photo>> LoadPhotosAsync()
     {
         var folders = await _folderRepository.GetAllFoldersAsync();

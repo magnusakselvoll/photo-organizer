@@ -14,10 +14,4 @@ public sealed class IndexPhotoRepository(PhotoIndex index) : IPhotoRepository
 
     public Task<Photo?> GetByIdAsync(Guid id) =>
         Task.FromResult(index.GetById(id));
-
-    public Task InvalidateCacheAsync()
-    {
-        index.Clear();
-        return Task.CompletedTask;
-    }
 }

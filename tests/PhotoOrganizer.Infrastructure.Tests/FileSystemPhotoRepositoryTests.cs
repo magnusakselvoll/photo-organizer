@@ -106,16 +106,13 @@ public sealed class FileSystemPhotoRepositoryTests
     }
 
     [TestMethod]
-    public async Task GetAllPhotos_DeterministicId_StableAcrossRepeatCalls()
+    public async Task GetAllPhotos_DeterministicId_StableAcrossIndependentLoads()
     {
         await WriteFolderSidecar(_tempDir.FullName);
         WritePhotoFile(_tempDir.FullName, "photo.jpg");
 
-        var repo = CreatePhotoRepository(_tempDir.FullName);
-        var photos1 = await repo.GetAllPhotosAsync();
-
-        await repo.InvalidateCacheAsync();
-        var photos2 = await repo.GetAllPhotosAsync();
+        var photos1 = await CreatePhotoRepository(_tempDir.FullName).GetAllPhotosAsync();
+        var photos2 = await CreatePhotoRepository(_tempDir.FullName).GetAllPhotosAsync();
 
         Assert.AreEqual(photos1[0].Id, photos2[0].Id);
     }
@@ -171,26 +168,7 @@ public sealed class FileSystemPhotoRepositoryTests
         Assert.IsNull(result);
     }
 
-    [TestMethod]
-    public async Task InvalidateCache_ForcesReload()
-    {
-        await WriteFolderSidecar(_tempDir.FullName);
-        WritePhotoFile(_tempDir.FullName, "photo.jpg");
-
-        var repo = CreatePhotoRepository(_tempDir.FullName);
-        var before = await repo.GetAllPhotosAsync();
-
-        // Add a new photo after initial load
-        WritePhotoFile(_tempDir.FullName, "photo2.jpg");
-        await repo.InvalidateCacheAsync();
-
-        var after = await repo.GetAllPhotosAsync();
-
-        Assert.AreEqual(1, before.Count);
-        Assert.AreEqual(2, after.Count);
-    }
-
-    [TestMethod]
+[TestMethod]
     public async Task GetAllPhotos_SkipsReparsePointSubdirectory_AndStillFindsPhotos()
     {
         await WriteFolderSidecar(_tempDir.FullName);

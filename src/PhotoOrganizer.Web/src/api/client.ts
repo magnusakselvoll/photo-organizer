@@ -19,6 +19,9 @@ export async function getPhotos(query: PhotoQuery = {}): Promise<PhotoPageDto> {
   if (query.folder) params.set('folder', query.folder);
   if (query.type) params.set('type', query.type);
   if (query.deduplicated !== undefined) params.set('deduplicated', String(query.deduplicated));
+  if (query.fileName) params.set('fileName', query.fileName);
+  if (query.dateFrom) params.set('dateFrom', query.dateFrom);
+  if (query.dateTo) params.set('dateTo', query.dateTo);
   if (query.page !== undefined) params.set('page', String(query.page));
   if (query.pageSize !== undefined) params.set('pageSize', String(query.pageSize));
   if (query.cursor !== undefined) params.set('cursor', query.cursor);

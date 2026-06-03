@@ -85,6 +85,9 @@ app.MapGet("/api/photos", async (
     [FromQuery] int pageSize = 50,
     [FromQuery] string? cursor = null,
     [FromQuery] int? limit = null,
+    [FromQuery] string? fileName = null,
+    [FromQuery] string? dateFrom = null,
+    [FromQuery] string? dateTo = null,
     IPhotoService service = default!) =>
 {
     var filter = new PhotoFilter
@@ -96,6 +99,10 @@ app.MapGet("/api/photos", async (
         PageSize = pageSize,
         Cursor = cursor,
         Limit = limit,
+        FileName = fileName,
+        // Parse dates leniently — an unparseable value is treated as absent (no 400).
+        DateFrom = DateOnly.TryParse(dateFrom, out var df) ? df : null,
+        DateTo = DateOnly.TryParse(dateTo, out var dt) ? dt : null,
     };
     var result = await service.GetPhotosAsync(filter);
     return Results.Ok(result);

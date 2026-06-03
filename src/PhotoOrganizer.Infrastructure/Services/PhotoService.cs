@@ -106,6 +106,25 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
             result = result.Where(p => p.FolderType == folderType);
         }
 
+        if (filter.FileName is { Length: > 0 } fn)
+            result = result.Where(p => Path.GetFileName(p.FilePath).Contains(fn, StringComparison.OrdinalIgnoreCase));
+
+        // Date-range filtering on effective date (CapturedAt ?? FileModifiedAt).
+        // Dates are compared in UTC for consistency with the keyset cursor (EffectiveTicks uses UtcTicks).
+        // Photos with a null effective date are excluded whenever any bound is set.
+        if (filter.DateFrom is { } dateFrom)
+        {
+            var fromUtc = new DateTimeOffset(dateFrom.Year, dateFrom.Month, dateFrom.Day, 0, 0, 0, TimeSpan.Zero);
+            result = result.Where(p => (p.CapturedAt ?? p.FileModifiedAt) >= fromUtc);
+        }
+
+        if (filter.DateTo is { } dateTo)
+        {
+            // Exclusive upper bound at the start of the next day so the whole to-day is included.
+            var toExclusiveUtc = new DateTimeOffset(dateTo.Year, dateTo.Month, dateTo.Day, 0, 0, 0, TimeSpan.Zero).AddDays(1);
+            result = result.Where(p => (p.CapturedAt ?? p.FileModifiedAt) < toExclusiveUtc);
+        }
+
         if (filter.Deduplicated)
             result = Deduplicate(result);
 

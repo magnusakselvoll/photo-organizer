@@ -58,6 +58,26 @@
   font-size: 14px;
 }
 
+.filter-bar .filter-text {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 14px;
+  width: 180px;
+}
+
+.filter-bar .filter-date {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 14px;
+  width: 140px;
+}
+
 /* Browse page — flex column so the scroll container can stretch to fill. */
 .browse-page {
   display: flex;

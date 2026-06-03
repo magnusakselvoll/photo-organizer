@@ -6,6 +6,12 @@ export interface InfinitePhotosFilters {
   folder: string;
   type: string;
   deduplicated: boolean;
+  /** Debounced filename search term (empty string = no filter). */
+  fileName: string;
+  /** ISO date string YYYY-MM-DD for inclusive lower bound, or empty string. */
+  dateFrom: string;
+  /** ISO date string YYYY-MM-DD for inclusive upper bound (whole day), or empty string. */
+  dateTo: string;
 }
 
 export interface UseInfinitePhotosResult {
@@ -25,9 +31,10 @@ const PAGE_SIZE = 50;
 /**
  * Produces a stable string key from a filter set so we can detect changes.
  * The hook resets its state whenever the key changes.
+ * ALL filter fields must be included here — omitting one silently breaks refetch.
  */
 export function filterKey(f: InfinitePhotosFilters): string {
-  return `${f.folder}|${f.type}|${f.deduplicated}`;
+  return `${f.folder}|${f.type}|${f.deduplicated}|${f.fileName}|${f.dateFrom}|${f.dateTo}`;
 }
 
 // ─── Reducer ─────────────────────────────────────────────────────────────────
@@ -141,6 +148,9 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
       folder: f.folder || undefined,
       type: f.type !== 'all' ? f.type : undefined,
       deduplicated: f.deduplicated,
+      fileName: f.fileName || undefined,
+      dateFrom: f.dateFrom || undefined,
+      dateTo: f.dateTo || undefined,
       cursor: cursor ?? undefined,
       limit: PAGE_SIZE,
     })

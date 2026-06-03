@@ -127,6 +127,12 @@ pnpm run lint                                          # Lint frontend
 pnpm run test                                          # Frontend tests
 ```
 
+## Security / Networking
+
+The server binds **loopback-only** by default — `localhost:6192` in dev (via `launchSettings.json`); Kestrel's default `localhost:5000` in published builds. It is intentionally not accessible from other machines.
+
+**Do not bind to `0.0.0.0` or a LAN interface** without first adding authentication (e.g. a shared secret) and rate limiting. Before any such change, read the security notes in SPEC.md §8.
+
 ## Project Structure
 
 ```

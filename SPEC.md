@@ -232,7 +232,7 @@ Base path: `/api`
 | GET | `/photos/{id}/image` | Serve the photo file; HEIC/HEIF is transcoded to JPEG on the fly; RAW formats are served as `application/octet-stream` for download |
 | GET | `/slideshow/next` | Next photo for slideshow (respects duplicate preference) |
 | GET | `/config` | Runtime configuration |
-| POST | `/crawler/start` | Trigger a crawl (`{ "mode": "full\|incremental\|targeted", "step": "..." }`) |
+| POST | `/crawler/start` | Trigger a crawl (`{ "mode": "full\|incremental\|targeted", "step": "..." }`); requires the `X-Requested-With` header (CSRF guard); `mode` and `step` must be values from the allowlist (see §8) |
 | GET | `/crawler/status` | Current crawl state (idle/running, progress, last run info) |
 
 ### Query Parameters for `/photos`
@@ -292,7 +292,39 @@ The browse grid (`BrowsePage` → `PhotoGrid`) uses **virtualized infinite scrol
 - **Filters**: folder, type (originals/edits/all), deduplicated-only, filename search (case-insensitive substring), date range (from/to, day-granularity on effective date). All filter state is reflected in URL query params via `useSearchParams` so filtered views are deep-linkable and survive refresh. Filename input is debounced 300 ms. Changing any filter resets the infinite list and re-fetches from the top.
 - **Fast-scroll date overlay**: while the user scrolls the grid a floating month/year pill appears showing where in time the current scroll position sits, derived from the topmost visible photo's `effectiveDate`. It fades out automatically after scrolling stops.
 
-## 10. Configuration
+## 10. Security
+
+### Bind address (loopback-only)
+
+The server is designed for **personal, local-only use**. It binds loopback by default:
+- Dev (`dotnet run`): `http://localhost:6192` via `launchSettings.json`.
+- Published builds: Kestrel default `http://localhost:5000` unless `ASPNETCORE_URLS` or Kestrel config overrides it.
+
+**Do not bind to `0.0.0.0` or a LAN interface** without first adding authentication (a shared secret or equivalent) and rate limiting. Without those controls, any device on the same network could trigger crawl runs or access the photo library.
+
+### CSRF protection on `POST /crawler/start`
+
+The only mutating API endpoint requires the custom request header `X-Requested-With` (any non-empty value). This header is not a CORS-safelisted header, so:
+1. A cross-origin browser request must first send a CORS preflight (`OPTIONS`).
+2. The CORS policy only allows the configured origin allowlist (default: `localhost:6173` and `localhost:6192`).
+3. A malicious page on a different origin cannot get its preflight approved, so the POST is never sent — preventing blind CSRF attacks.
+
+Responses: **403** if the header is absent; **400** if `mode`/`step` are outside the allowlist.
+
+Frontend callers must include `X-Requested-With: fetch` (or any non-empty value) when calling `POST /api/crawler/start`.
+
+### Allowlist: `mode` and `step`
+
+`mode` must be one of: `full`, `incremental`, `targeted`.  
+`step` (optional) must be one of: `metadata`, `duplicates`.
+
+These mirror the values defined in `PhotoOrganizer.Crawler` (`RunCommand.cs` for modes; `IBatchProcessingStep.Name` for steps). The authoritative in-process allowlist is `StartCrawlValidation` in `PhotoOrganizer.Application`.
+
+### Argument injection prevention
+
+The crawler process is launched via `ProcessStartInfo.ArgumentList` (one token per element), not a concatenated `Arguments` string, so embedded spaces or extra flags in `mode`/`step` values cannot re-tokenize into additional CLI arguments.
+
+## 11. Configuration
 
 Stored in `appsettings.json` (gitignored for personal paths). Example:
 
@@ -313,7 +345,7 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
 
 `ScanRoots` are paths the server scans recursively for `_folder.json` files to discover managed source folders. Reparse-point directories (symlinks, junctions) and any subdirectory that raises an I/O or access-denied error during enumeration are skipped with a logged warning; the scan continues.
 
-## 11. Non-Goals (for now)
+## 12. Non-Goals (for now)
 
 - Cloud sync or remote storage
 - Authentication / multi-user
@@ -321,7 +353,7 @@ Stored in `appsettings.json` (gitignored for personal paths). Example:
 - Printing
 - Social sharing
 
-## 12. Future Extension Points
+## 13. Future Extension Points
 
 The architecture is intentionally open to:
 

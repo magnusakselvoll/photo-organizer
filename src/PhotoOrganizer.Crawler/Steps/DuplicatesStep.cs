@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using PhotoOrganizer.Crawler.Pipeline;
+using PhotoOrganizer.Domain;
 using PhotoOrganizer.Domain.Models;
 using Serilog;
 
@@ -20,14 +21,6 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
     // macOS "copy" suffix: " copy", " copy 2", " copy 37", etc.
     [GeneratedRegex(@"\s+copy(\s+\d+)?$", RegexOptions.IgnoreCase)]
     private static partial Regex CopySuffixPattern();
-
-    // Extensions that browsers can render natively. RAW formats (.orf, .cr2, .cr3, .arw, .nef, .rw2)
-    // and container formats (.heic, .tiff) are excluded — the server serves them as
-    // application/octet-stream and they cannot be displayed in a <img> element.
-    private static readonly HashSet<string> BrowserDisplayableExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".bmp",
-    };
 
     // Edit suffixes to strip, ordered longest-first to avoid partial matches.
     private static readonly string[] EditSuffixes =
@@ -152,8 +145,13 @@ public sealed partial class DuplicatesStep : IBatchProcessingStep
         return name.ToLowerInvariant();
     }
 
+    // Prefer browser-native (0) over transcodable/HEIC (1) over non-displayable/RAW (2).
+    // Browser-native avoids server-side transcoding cost; transcodable is still fully renderable
+    // and outranks RAW so the crawler never elects an unrenderable preferred within a group.
     private static int DisplayablePriority(string filePath) =>
-        BrowserDisplayableExtensions.Contains(Path.GetExtension(filePath)) ? 0 : 1;
+        DisplayableImageFormats.IsBrowserDisplayable(filePath) ? 0
+        : DisplayableImageFormats.IsTranscodable(filePath) ? 1
+        : 2;
 
     private static int FolderTypePriority(string folderType) => folderType switch
     {

@@ -291,6 +291,31 @@ public class DuplicatesStepTests
         Assert.IsFalse(store.WrittenSidecars["/originals/photo.jpg"].IsPreferred);
     }
 
+    [TestMethod]
+    public async Task HeicPreferredOverRawInSameFolder()
+    {
+        // HEIC is transcodable (server converts to JPEG) and should beat a RAW file that cannot
+        // be displayed at all. Without this a HEIC+RAW group would elect RAW as preferred, and
+        // the serving filter would then drop the whole group from the grid/slideshow.
+        var store = new InMemorySidecarStore();
+        store.FolderSidecars["/originals"] = new FolderSidecar { Label = "Originals", Type = "originals", Enabled = true };
+
+        var step = new DuplicatesStep();
+        var context = new BatchProcessingContext
+        {
+            FilePaths = ["/originals/photo.cr2", "/originals/photo.heic"],
+            SidecarStore = store,
+            GetLastModified = _ => DateTime.MinValue
+        };
+
+        await step.ExecuteAsync(context);
+
+        Assert.IsTrue(store.WrittenSidecars["/originals/photo.heic"].IsPreferred,
+            "HEIC (transcodable) should be preferred over RAW (non-displayable)");
+        Assert.IsFalse(store.WrittenSidecars["/originals/photo.cr2"].IsPreferred,
+            "RAW should not be preferred when a transcodable HEIC sibling exists");
+    }
+
     // ---- Cleanup ----
 
     [TestMethod]

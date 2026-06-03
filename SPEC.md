@@ -227,9 +227,9 @@ Base path: `/api`
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/folders` | List discovered source folders |
-| GET | `/photos` | List photos (supports filtering, pagination) |
-| GET | `/photos/{id}` | Get photo metadata (includes `versions` list of all duplicate-group siblings, ordered preferred first) |
-| GET | `/photos/{id}/image` | Serve the photo file; HEIC/HEIF is transcoded to JPEG on the fly |
+| GET | `/photos` | List photos (supports filtering, pagination); only displayable photos are returned — non-displayable files (RAW, bare TIFF) are excluded from listings |
+| GET | `/photos/{id}` | Get photo metadata (includes `versions` list of all duplicate-group siblings, ordered preferred first; may include non-displayable versions for download) |
+| GET | `/photos/{id}/image` | Serve the photo file; HEIC/HEIF is transcoded to JPEG on the fly; RAW formats are served as `application/octet-stream` for download |
 | GET | `/slideshow/next` | Next photo for slideshow (respects duplicate preference) |
 | GET | `/config` | Runtime configuration |
 | POST | `/crawler/start` | Trigger a crawl (`{ "mode": "full\|incremental\|targeted", "step": "..." }`) |
@@ -250,7 +250,7 @@ Base path: `/api`
 - Cycles through photos indefinitely
 - Applies Ken Burns pan/zoom animation per photo
 - Cross-fade transition between photos (≈500 ms)
-- Only shows the preferred (deduplicated) version of each photo
+- Only shows the preferred (deduplicated) version of each photo; non-displayable photos are excluded
 - Configurable transition interval
 
 ## 9. Frontend

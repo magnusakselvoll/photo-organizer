@@ -102,4 +102,65 @@ public class SidecarStoreTests
         await store.WritePhotoMetaAsync(photoPath, new PhotoMetaSidecar());
         Assert.IsTrue(File.Exists(expectedSidecarPath));
     }
+
+    [TestMethod]
+    public async Task WritePhotoMeta_LeavesNoTempFiles_AfterSuccessfulWrite()
+    {
+        var store = new JsonSidecarStore();
+        var photoPath = Path.Combine(_tempDir, "photo.jpg");
+
+        await store.WritePhotoMetaAsync(photoPath, new PhotoMetaSidecar { Version = 1 });
+
+        var files = Directory.GetFiles(_tempDir);
+        Assert.AreEqual(1, files.Length, "Only the sidecar file should remain — no temp files");
+        Assert.IsTrue(files[0].EndsWith(".meta.json"), "The only file should be the sidecar");
+    }
+
+    [TestMethod]
+    public async Task WriteFolderSidecar_LeavesNoTempFiles_AfterSuccessfulWrite()
+    {
+        var store = new JsonSidecarStore();
+
+        await store.WriteFolderSidecarAsync(_tempDir, new FolderSidecar { Version = 1, Type = "originals" });
+
+        var files = Directory.GetFiles(_tempDir);
+        Assert.AreEqual(1, files.Length, "Only the sidecar file should remain — no temp files");
+        Assert.AreEqual("_folder.json", Path.GetFileName(files[0]));
+    }
+
+    [TestMethod]
+    public async Task WritePhotoMeta_OriginalIntact_WhenAbandonedTempFileExists()
+    {
+        // Simulates a prior interrupted write: a temp file was left behind in the directory
+        // but the original sidecar is still intact. Reads must ignore the abandoned temp file.
+        var store = new JsonSidecarStore();
+        var photoPath = Path.Combine(_tempDir, "photo.jpg");
+        var original = new PhotoMetaSidecar { Version = 1, Tags = ["original"] };
+        await store.WritePhotoMetaAsync(photoPath, original);
+
+        // Plant an abandoned temp file (partial/invalid JSON) as if a previous write was killed mid-stream
+        await File.WriteAllTextAsync(Path.Combine(_tempDir, Path.GetRandomFileName()), "partial");
+
+        var loaded = await store.ReadPhotoMetaAsync(photoPath);
+        Assert.IsNotNull(loaded);
+        Assert.AreEqual(1, loaded.Version);
+        CollectionAssert.AreEqual(new[] { "original" }, loaded.Tags);
+    }
+
+    [TestMethod]
+    public async Task WritePhotoMeta_LeavesNoTempFiles_WhenWriteFails()
+    {
+        var store = new JsonSidecarStore();
+        // Point to a path whose parent directory does not exist — File.Create will throw
+        var photoPath = Path.Combine(_tempDir, "nonexistent-subdir", "photo.jpg");
+
+        try
+        {
+            await store.WritePhotoMetaAsync(photoPath, new PhotoMetaSidecar());
+            Assert.Fail("Expected an exception for nonexistent directory");
+        }
+        catch (DirectoryNotFoundException) { }
+
+        Assert.AreEqual(0, Directory.GetFiles(_tempDir).Length, "No temp files should remain after a failed write");
+    }
 }

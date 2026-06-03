@@ -26,6 +26,21 @@ public static class DisplayableImageFormats
         ".heic", ".heif",
     };
 
+    /// <summary>
+    /// Every extension the browser can display, natively or via server-side transcoding.
+    /// This is the union of <see cref="BrowserDisplayableExtensions"/> and
+    /// <see cref="TranscodableExtensions"/>. Used by <see cref="SupportedPhotoExtensions"/>
+    /// to guarantee that all displayable formats are also discoverable.
+    /// </summary>
+    public static readonly IReadOnlySet<string> AllDisplayableExtensions = BuildAllDisplayable();
+
+    private static HashSet<string> BuildAllDisplayable()
+    {
+        var set = new HashSet<string>(BrowserDisplayableExtensions, StringComparer.OrdinalIgnoreCase);
+        set.UnionWith(TranscodableExtensions);
+        return set;
+    }
+
     /// <summary>Returns true when the file's extension can be rendered natively by browsers.</summary>
     public static bool IsBrowserDisplayable(string filePath) =>
         BrowserDisplayableExtensions.Contains(Path.GetExtension(filePath));

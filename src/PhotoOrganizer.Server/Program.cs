@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 using PhotoOrganizer.Application;
 using PhotoOrganizer.Application.Crawler;
 using PhotoOrganizer.Application.Folders;
@@ -102,11 +103,18 @@ app.MapGet("/api/photos/{id:guid}", async (Guid id, IPhotoService service) =>
     return photo is null ? Results.NotFound() : Results.Ok(photo);
 });
 
-app.MapGet("/api/photos/{id:guid}/image", async (Guid id, IPhotoRepository repository, IImageTranscoder transcoder, CancellationToken ct) =>
+app.MapGet("/api/photos/{id:guid}/image", async (Guid id, HttpContext httpContext, IPhotoRepository repository, IImageTranscoder transcoder, CancellationToken ct) =>
 {
     var photo = await repository.GetByIdAsync(id);
     if (photo is null)
         return Results.NotFound();
+
+    // Set Content-Disposition: inline so the browser renders the image inline while still
+    // knowing the file's real name (e.g. when saving). SetHttpFileName handles non-ASCII
+    // names by emitting the RFC 5987 filename* parameter when required.
+    var disposition = new ContentDispositionHeaderValue("inline");
+    disposition.SetHttpFileName(photo.FileName);
+    httpContext.Response.Headers.ContentDisposition = disposition.ToString();
 
     // HEIC/HEIF cannot be natively decoded by most browsers; transcode to JPEG on the fly.
     if (transcoder.IsTranscodable(photo.FilePath))
@@ -118,9 +126,12 @@ app.MapGet("/api/photos/{id:guid}/image", async (Guid id, IPhotoRepository repos
     var contentType = Path.GetExtension(photo.FilePath).ToLowerInvariant() switch
     {
         ".jpg" or ".jpeg" => "image/jpeg",
-        ".png" => "image/png",
+        ".png"            => "image/png",
+        ".gif"            => "image/gif",
+        ".webp"           => "image/webp",
+        ".bmp"            => "image/bmp",
         ".tiff" or ".tif" => "image/tiff",
-        _ => "application/octet-stream"
+        _                 => "application/octet-stream"
     };
 
     return Results.File(photo.FilePath, contentType);

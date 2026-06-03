@@ -389,6 +389,5 @@ public sealed class PhotoServiceFilterTests
 
         public Task<IReadOnlyList<Photo>> GetAllPhotosAsync() => Task.FromResult(_photos);
         public Task<Photo?> GetByIdAsync(Guid id) => Task.FromResult(_photos.FirstOrDefault(p => p.Id == id));
-        public Task InvalidateCacheAsync() => Task.CompletedTask;
     }
 }

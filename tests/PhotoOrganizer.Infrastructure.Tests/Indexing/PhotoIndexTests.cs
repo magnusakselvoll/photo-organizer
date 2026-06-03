@@ -106,19 +106,6 @@ public sealed class PhotoIndexTests
         Assert.IsTrue(index.IsComplete);
     }
 
-    [TestMethod]
-    public void Clear_ResetsCountAndIsComplete()
-    {
-        var index = new PhotoIndex();
-        index.AddPhoto(MakePhoto(@"C:\photos\img001.jpg"));
-        index.MarkComplete();
-
-        index.Clear();
-
-        Assert.AreEqual(0, index.Count);
-        Assert.IsFalse(index.IsComplete);
-    }
-
     // ─── Thread safety ────────────────────────────────────────────────────────
 
     [TestMethod]

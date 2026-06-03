@@ -245,6 +245,38 @@ public sealed class PhotoServiceCursorTests
         Assert.IsNull(page.NextCursor, "Offset path must not set NextCursor");
     }
 
+    // ─── EffectiveDate on returned DTOs ──────────────────────────────────────
+
+    [TestMethod]
+    public async Task GetPhotosAsync_EffectiveDate_EqualsCapturedAt_WhenPresent()
+    {
+        var photo = Make("x", capturedAt: May1, fileModifiedAt: Jan1);
+        var page = await Service([photo]).GetPhotosAsync(CursorFilter(limit: 1));
+
+        Assert.AreEqual(May1, page.Items[0].EffectiveDate,
+            "EffectiveDate should be CapturedAt when CapturedAt is not null");
+    }
+
+    [TestMethod]
+    public async Task GetPhotosAsync_EffectiveDate_FallsBackToFileModifiedAt_WhenCapturedAtNull()
+    {
+        var photo = Make("x", capturedAt: null, fileModifiedAt: Mar1);
+        var page = await Service([photo]).GetPhotosAsync(CursorFilter(limit: 1));
+
+        Assert.AreEqual(Mar1, page.Items[0].EffectiveDate,
+            "EffectiveDate should fall back to FileModifiedAt when CapturedAt is null");
+    }
+
+    [TestMethod]
+    public async Task GetPhotosAsync_EffectiveDate_IsNull_WhenBothDatesAbsent()
+    {
+        var photo = Make("x", capturedAt: null, fileModifiedAt: null);
+        var page = await Service([photo]).GetPhotosAsync(CursorFilter(limit: 1));
+
+        Assert.IsNull(page.Items[0].EffectiveDate,
+            "EffectiveDate should be null when both CapturedAt and FileModifiedAt are absent");
+    }
+
     // ─── Stub repository ──────────────────────────────────────────────────────
 
     private sealed class StubPhotoRepository(IEnumerable<Photo> photos) : IPhotoRepository

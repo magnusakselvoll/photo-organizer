@@ -8,12 +8,20 @@ const MIN_COL_WIDTH = 180;
 const GAP = 12;
 // How many rows from the bottom before we request more photos.
 const LOAD_MORE_THRESHOLD = 3;
+// How long (ms) after the last scroll event before the date label fades out.
+const SCRUB_HIDE_DELAY_MS = 700;
 
 interface Props {
   photos: PhotoDto[];
   hasMore: boolean;
   isLoading: boolean;
   onLoadMore: () => void;
+}
+
+/** Format an ISO date string as "Month Year", e.g. "June 2024". Returns null when iso is null. */
+function monthYearLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
 /**
@@ -29,10 +37,17 @@ interface Props {
  *
  * When the user scrolls near the bottom, `onLoadMore` is called to fetch the
  * next cursor page.
+ *
+ * While scrolling, a floating date pill (`.scrub-date`) shows the month/year
+ * of the topmost visible photo, derived from the photo's `effectiveDate` field.
+ * It fades out automatically after scrolling stops.
  */
 export default function PhotoGrid({ photos, hasMore, isLoading, onLoadMore }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [scrubLabel, setScrubLabel] = useState<string | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Measure container width (and track resize).
   useEffect(() => {
@@ -71,48 +86,71 @@ export default function PhotoGrid({ photos, hasMore, isLoading, onLoadMore }: Pr
     }
   }, [virtualItems, hasMore, isLoading, rowCount, onLoadMore]);
 
-  return (
-    <div
-      ref={scrollRef}
-      className="photo-grid-scroll"
-    >
-      <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          position: 'relative',
-        }}
-      >
-        {virtualItems.map(virtualRow => {
-          const startIdx = virtualRow.index * cols;
-          const rowPhotos = photos.slice(startIdx, startIdx + cols);
+  // Update the scrub-date label while scrolling.
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    const scrollTop = (e.target as HTMLDivElement).scrollTop;
+    const topRow = rowHeight > 0 ? Math.floor(scrollTop / rowHeight) : 0;
+    const topIdx = topRow * cols;
+    const label = monthYearLabel(photos[topIdx]?.effectiveDate ?? null);
 
-          return (
-            <div
-              key={virtualRow.key}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualRow.start}px)`,
-                display: 'grid',
-                gridTemplateColumns: `repeat(${cols}, 1fr)`,
-                gap: `${GAP}px`,
-                paddingBottom: `${GAP}px`,
-              }}
-            >
-              {rowPhotos.map(photo => (
-                <PhotoCard key={photo.id} photo={photo} />
-              ))}
-            </div>
-          );
-        })}
+    setScrubbing(true);
+    if (label) setScrubLabel(label);
+
+    if (hideTimerRef.current !== null) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setScrubbing(false), SCRUB_HIDE_DELAY_MS);
+  }
+
+  return (
+    <div className="photo-grid-wrap">
+      <div
+        ref={scrollRef}
+        className="photo-grid-scroll"
+        onScroll={handleScroll}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            position: 'relative',
+          }}
+        >
+          {virtualItems.map(virtualRow => {
+            const startIdx = virtualRow.index * cols;
+            const rowPhotos = photos.slice(startIdx, startIdx + cols);
+
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${cols}, 1fr)`,
+                  gap: `${GAP}px`,
+                  paddingBottom: `${GAP}px`,
+                }}
+              >
+                {rowPhotos.map(photo => (
+                  <PhotoCard key={photo.id} photo={photo} />
+                ))}
+              </div>
+            );
+          })}
+        </div>
+
+        {isLoading && (
+          <p className="status" style={{ textAlign: 'center', padding: '1rem' }}>
+            Loading…
+          </p>
+        )}
       </div>
 
-      {isLoading && (
-        <p className="status" style={{ textAlign: 'center', padding: '1rem' }}>
-          Loading…
-        </p>
+      {scrubLabel && (
+        <div className="scrub-date" data-visible={scrubbing} aria-hidden="true">
+          {scrubLabel}
+        </div>
       )}
     </div>
   );

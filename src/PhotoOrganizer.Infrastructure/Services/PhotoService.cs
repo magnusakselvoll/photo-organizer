@@ -141,6 +141,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         FilePath = photo.FilePath,
         FileName = photo.FileName,
         CapturedAt = photo.CapturedAt,
+        EffectiveDate = photo.CapturedAt ?? photo.FileModifiedAt,
         FolderType = photo.FolderType.ToString(),
         DuplicateGroupId = photo.DuplicateGroupId,
         IsPreferred = photo.IsPreferred,

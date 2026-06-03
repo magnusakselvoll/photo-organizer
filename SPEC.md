@@ -284,9 +284,10 @@ The browse grid (`BrowsePage` → `PhotoGrid`) uses **virtualized infinite scrol
 - **Virtualizer**: `@tanstack/react-virtual` (`useVirtualizer`) windows rows so only visible rows ± overscan are in the DOM, regardless of total photo count.
 - **Infinite fetch**: `useInfinitePhotos` hook (hand-rolled, no TanStack Query) uses keyset cursor pagination to fetch 50 photos at a time; `loadMore()` is triggered when the virtualizer detects the user is within ~3 rows of the loaded tail.
 - **Columns**: derived dynamically from container width via `ResizeObserver`, using the same `minmax(180px, 1fr)` / 12 px gap layout as the CSS grid.
-- **Sort**: newest-first (`capturedAt ?? fileModifiedAt`, with `id` as a tiebreaker). This is the server default and requires no client-side sorting.
+- **Sort**: newest-first (`capturedAt ?? fileModifiedAt`, with `id` as a tiebreaker). This is the server default and requires no client-side sorting. Each `PhotoDto` includes an `effectiveDate` field (the sort key: `capturedAt ?? fileModifiedAt`) so the client can read the date at any scroll position without an extra request.
 - **Live updates**: `BrowsePage` polls `GET /api/index/status` every 4 s while the index is still building. When the count grows, it fetches the newest page and prepends unknown arrivals via `mergeNewest()`. Polling stops when `complete` is `true`.
 - **Filters**: folder, type (originals/edits/all), deduplicated-only; changing any filter resets the infinite list and re-fetches from the top.
+- **Fast-scroll date overlay**: while the user scrolls the grid a floating month/year pill appears showing where in time the current scroll position sits, derived from the topmost visible photo's `effectiveDate`. It fades out automatically after scrolling stops.
 
 ## 10. Configuration
 

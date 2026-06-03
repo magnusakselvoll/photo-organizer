@@ -13,6 +13,8 @@ export interface PhotoDto {
   filePath: string;
   fileName: string;
   capturedAt: string | null;
+  /** Sort key: capturedAt if present, otherwise fileModifiedAt. Matches cursor/ordering sort. */
+  effectiveDate: string | null;
   folderType: FolderType;
   duplicateGroupId: string | null;
   isPreferred: boolean;

@@ -1,7 +1,11 @@
 import type { ConfigDto, FolderDto, IndexStatusDto, IndexStatsDto, PhotoDto, PhotoPageDto, PhotoQuery } from './types';
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+const REQUEST_TIMEOUT_MS = 30_000;
+
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const res = await fetch(url, { signal: combined });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${url}`);
   return res.json() as Promise<T>;
 }
@@ -14,7 +18,7 @@ export async function getFolders(): Promise<FolderDto[]> {
   return fetchJson('/api/folders');
 }
 
-export async function getPhotos(query: PhotoQuery = {}): Promise<PhotoPageDto> {
+export async function getPhotos(query: PhotoQuery = {}, signal?: AbortSignal): Promise<PhotoPageDto> {
   const params = new URLSearchParams();
   if (query.folder) params.set('folder', query.folder);
   if (query.type) params.set('type', query.type);
@@ -27,7 +31,7 @@ export async function getPhotos(query: PhotoQuery = {}): Promise<PhotoPageDto> {
   if (query.cursor !== undefined) params.set('cursor', query.cursor);
   if (query.limit !== undefined) params.set('limit', String(query.limit));
   const qs = params.toString();
-  return fetchJson(`/api/photos${qs ? `?${qs}` : ''}`);
+  return fetchJson(`/api/photos${qs ? `?${qs}` : ''}`, signal);
 }
 
 export async function getIndexStatus(): Promise<IndexStatusDto> {

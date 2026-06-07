@@ -1,5 +1,8 @@
-import { columnsForWidth, filterKey } from '../hooks/useInfinitePhotos';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { columnsForWidth, filterKey, useInfinitePhotos } from '../hooks/useInfinitePhotos';
 import type { InfinitePhotosFilters } from '../hooks/useInfinitePhotos';
+import * as client from '../api/client';
+import type { PhotoPageDto } from '../api/types';
 
 // ─── filterKey ────────────────────────────────────────────────────────────────
 // Every field in InfinitePhotosFilters must appear in filterKey so that a change
@@ -89,5 +92,151 @@ describe('columnsForWidth', () => {
   test('handles a realistic 1280px viewport with defaults', () => {
     // floor((1280 + 12) / (180 + 12)) = floor(1292 / 192) = 6
     expect(columnsForWidth(1280)).toBe(6);
+  });
+});
+
+// ─── useInfinitePhotos hook behaviour ─────────────────────────────────────────
+
+vi.mock('../api/client', () => ({
+  getPhotos: vi.fn(),
+}));
+
+function makePhoto(id: string) {
+  return {
+    id,
+    filePath: `/photos/${id}.jpg`,
+    fileName: `${id}.jpg`,
+    capturedAt: null,
+    effectiveDate: null,
+    folderType: 'Originals' as const,
+    duplicateGroupId: null,
+    isPreferred: true,
+    tags: [],
+    versions: [],
+  };
+}
+
+function makePage(ids: string[], nextCursor: string | null = null): PhotoPageDto {
+  return { items: ids.map(makePhoto), totalCount: ids.length, page: 1, pageSize: ids.length, nextCursor };
+}
+
+const BASE_FILTERS: InfinitePhotosFilters = {
+  folder: '',
+  type: 'all',
+  deduplicated: false,
+  fileName: '',
+  dateFrom: '',
+  dateTo: '',
+};
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('useInfinitePhotos hook', () => {
+  test('loads the first page on mount', async () => {
+    vi.mocked(client.getPhotos).mockResolvedValue(makePage(['a', 'b']));
+
+    const { result } = renderHook(() => useInfinitePhotos(BASE_FILTERS));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.items.map(p => p.id)).toEqual(['a', 'b']);
+    expect(result.current.totalCount).toBe(2);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  test('stale response is discarded when filter key changes mid-flight', async () => {
+    // Use manual resolve handles so we control when each fetch resolves.
+    let resolveFirst!: (v: PhotoPageDto) => void;
+    let resolveSecond!: (v: PhotoPageDto) => void;
+
+    vi.mocked(client.getPhotos)
+      .mockReturnValueOnce(new Promise<PhotoPageDto>(res => { resolveFirst = res; }))
+      .mockReturnValueOnce(new Promise<PhotoPageDto>(res => { resolveSecond = res; }));
+
+    const filtersA: InfinitePhotosFilters = { ...BASE_FILTERS, folder: 'a' };
+    const filtersB: InfinitePhotosFilters = { ...BASE_FILTERS, folder: 'b' };
+
+    const { result, rerender } = renderHook(
+      ({ filters }: { filters: InfinitePhotosFilters }) => useInfinitePhotos(filters),
+      { initialProps: { filters: filtersA } },
+    );
+
+    // Both filter sets are now mounted; switch to B before A resolves.
+    rerender({ filters: filtersB });
+
+    // Resolve A (stale) — its result must be discarded.
+    await act(async () => { resolveFirst(makePage(['stale-a'])); });
+
+    // Items must remain empty because A's response was stale.
+    expect(result.current.items).toHaveLength(0);
+
+    // Now resolve B (fresh) — its result must be applied.
+    await act(async () => { resolveSecond(makePage(['fresh-b'])); });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items.map(p => p.id)).toEqual(['fresh-b']);
+  });
+
+  test('mergeNewest prepends only ids not already loaded', async () => {
+    vi.mocked(client.getPhotos).mockResolvedValue(makePage(['a', 'b']));
+
+    const { result } = renderHook(() => useInfinitePhotos(BASE_FILTERS));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // 'b' is already loaded; only 'c' should be prepended.
+    act(() => { result.current.mergeNewest([makePhoto('b'), makePhoto('c')]); });
+
+    expect(result.current.items.map(p => p.id)).toEqual(['c', 'a', 'b']);
+    expect(result.current.totalCount).toBe(3);
+  });
+
+  test('mergeNewest with all-duplicate ids is a no-op', async () => {
+    vi.mocked(client.getPhotos).mockResolvedValue(makePage(['a']));
+
+    const { result } = renderHook(() => useInfinitePhotos(BASE_FILTERS));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const countBefore = result.current.totalCount;
+    act(() => { result.current.mergeNewest([makePhoto('a')]); });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.totalCount).toBe(countBefore);
+  });
+
+  test('loadMore appends the next page without duplicating the boundary item', async () => {
+    vi.mocked(client.getPhotos)
+      .mockResolvedValueOnce(makePage(['a', 'b'], 'cursor-2'))
+      .mockResolvedValueOnce(makePage(['c', 'd'], null));
+
+    const { result } = renderHook(() => useInfinitePhotos(BASE_FILTERS));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.hasMore).toBe(true);
+    expect(result.current.items.map(p => p.id)).toEqual(['a', 'b']);
+
+    act(() => { result.current.loadMore(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // Second page appended; no duplicates.
+    expect(result.current.items.map(p => p.id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  test('loadMore with an overlapping boundary item deduplicates', async () => {
+    // If the server returns 'b' again on the second page (e.g. concurrent write),
+    // the client-side Set dedup must exclude it.
+    vi.mocked(client.getPhotos)
+      .mockResolvedValueOnce(makePage(['a', 'b'], 'cursor-2'))
+      .mockResolvedValueOnce(makePage(['b', 'c'], null));
+
+    const { result } = renderHook(() => useInfinitePhotos(BASE_FILTERS));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => { result.current.loadMore(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.items.map(p => p.id)).toEqual(['a', 'b', 'c']);
   });
 });

@@ -86,6 +86,7 @@ test('changing the folder filter refetches with the chosen folder', async () => 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ folder: '/photos/2024' }),
+      expect.anything(),
     );
   });
 });
@@ -100,6 +101,7 @@ test('changing the type filter refetches with the chosen type', async () => {
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'Originals' }),
+      expect.anything(),
     );
   });
 });
@@ -113,6 +115,7 @@ test('unchecking deduplicated only refetches with deduplicated false', async () 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ deduplicated: false }),
+      expect.anything(),
     );
   });
 });
@@ -132,6 +135,7 @@ test('typing a filename search refetches with the debounced fileName', async () 
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ fileName: 'IMG' }),
+      expect.anything(),
     );
   });
 });
@@ -150,6 +154,7 @@ test('setting a date range refetches with dateFrom and dateTo', async () => {
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ dateFrom: '2024-01-01', dateTo: '2024-12-31' }),
+      expect.anything(),
     );
   });
 });
@@ -161,6 +166,7 @@ test('filters are initialised from URL query params on mount', async () => {
   await waitFor(() => {
     expect(client.getPhotos).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'Originals', deduplicated: false }),
+      expect.anything(),
     );
   });
 });

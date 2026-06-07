@@ -15,6 +15,7 @@ public sealed class PhotoIndex
         new(StringComparer.OrdinalIgnoreCase);
 
     private volatile bool _isComplete;
+    private long _version;
 
     /// <summary>True once the background indexer has finished walking all directories.</summary>
     public bool IsComplete => _isComplete;
@@ -22,8 +23,18 @@ public sealed class PhotoIndex
     /// <summary>Number of photos currently indexed (updates continuously as indexing runs).</summary>
     public int Count => _photos.Count;
 
+    /// <summary>
+    /// Monotonic version counter. Incremented on every <see cref="AddPhoto"/> call so that
+    /// caches keyed on this value know when to rebuild their derived views.
+    /// </summary>
+    public long Version => Interlocked.Read(ref _version);
+
     /// <summary>Adds or replaces a photo in the index. Idempotent by photo Id.</summary>
-    public void AddPhoto(Photo photo) => _photos[photo.Id] = photo;
+    public void AddPhoto(Photo photo)
+    {
+        _photos[photo.Id] = photo;
+        Interlocked.Increment(ref _version);
+    }
 
     /// <summary>Adds or replaces a folder in the index. Idempotent by path.</summary>
     public void AddFolder(SourceFolder folder) => _folders[folder.Path] = folder;

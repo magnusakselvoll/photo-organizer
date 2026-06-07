@@ -113,6 +113,8 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
   const activeKeyRef = useRef<string>('');
   // Set of loaded photo ids for O(1) dedup in mergeNewest.
   const loadedIdsRef = useRef<Set<string>>(new Set());
+  // AbortController for in-flight fetches; replaced on every filter reset and on unmount.
+  const abortRef = useRef<AbortController | null>(null);
 
   const currentKey = filterKey(filters);
 
@@ -122,6 +124,10 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
 
   // Reset state and fetch the first page whenever filters change.
   useEffect(() => {
+    // Abort any in-flight request from the previous filter set.
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     const key = filterKey(filtersRef.current);
     activeKeyRef.current = key;
     nextCursorRef.current = null;
@@ -131,6 +137,10 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
 
     dispatch({ type: 'reset' });
     fetchPage(key, null);
+
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [currentKey]);
 
   /**
@@ -144,16 +154,19 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
     dispatch({ type: 'fetch-start' });
 
     const f = filtersRef.current;
-    getPhotos({
-      folder: f.folder || undefined,
-      type: f.type !== 'all' ? f.type : undefined,
-      deduplicated: f.deduplicated,
-      fileName: f.fileName || undefined,
-      dateFrom: f.dateFrom || undefined,
-      dateTo: f.dateTo || undefined,
-      cursor: cursor ?? undefined,
-      limit: PAGE_SIZE,
-    })
+    getPhotos(
+      {
+        folder: f.folder || undefined,
+        type: f.type !== 'all' ? f.type : undefined,
+        deduplicated: f.deduplicated,
+        fileName: f.fileName || undefined,
+        dateFrom: f.dateFrom || undefined,
+        dateTo: f.dateTo || undefined,
+        cursor: cursor ?? undefined,
+        limit: PAGE_SIZE,
+      },
+      abortRef.current?.signal,
+    )
       .then(page => {
         if (activeKeyRef.current !== key) return; // stale response, discard
 
@@ -168,6 +181,9 @@ export function useInfinitePhotos(filters: InfinitePhotosFilters): UseInfinitePh
       })
       .catch(e => {
         if (activeKeyRef.current !== key) return;
+        // An abort is not a user-facing error — it means either filters changed
+        // (activeKeyRef guard above already handles the stale case) or unmount.
+        if (e instanceof DOMException && e.name === 'AbortError') return;
         dispatch({ type: 'fetch-error', error: String(e) });
       })
       .finally(() => {

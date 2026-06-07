@@ -182,7 +182,7 @@ export default function SlideshowPage() {
 
       {/* Subtle error indicator */}
       {slideshow.hasError && (
-        <div className="slideshow-error-indicator" title="Network error — retrying">⚠</div>
+        <div className="slideshow-error-indicator" title="Network error — will retry on next slide">⚠</div>
       )}
 
       {/* Feedback / info overlay */}

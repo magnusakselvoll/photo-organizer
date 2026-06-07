@@ -86,6 +86,43 @@ public sealed class PhotoServiceVersionsTests
         Assert.IsTrue(folderTypes.Contains("Originals"));
     }
 
+    /// <summary>
+    /// Verifies that the DTO derives the display filename from FilePath (always has an extension),
+    /// not from Photo.FileName (which the indexer stores without extension).
+    /// </summary>
+    [TestMethod]
+    public async Task GetPhotoByIdAsync_FileNameDerivedFromFilePath_IncludesExtension()
+    {
+        // Simulate what the indexer stores: FileName without extension, FilePath with extension.
+        var photo = new Photo
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/originals/photo.jpg",
+            FileName = "photo",   // extension-less, as stored by RandomizedSidecarIndexer
+            FolderType = FolderType.Originals,
+        };
+        var sibling = new Photo
+        {
+            Id = Guid.NewGuid(),
+            FilePath = "/originals/photo.orf",
+            FileName = "photo",   // extension-less RAW sibling
+            FolderType = FolderType.Originals,
+            DuplicateGroupId = GroupId,
+            IsPreferred = false,
+        };
+        photo = photo with { DuplicateGroupId = GroupId, IsPreferred = true };
+
+        var service = new PhotoService(new StubRepo([photo, sibling]));
+
+        var result = await service.GetPhotoByIdAsync(photo.Id);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("photo.jpg", result.FileName, "Main photo FileName must include extension");
+        var versionFileNames = result.Versions.Select(v => v.FileName).ToList();
+        CollectionAssert.Contains(versionFileNames, "photo.jpg");
+        CollectionAssert.Contains(versionFileNames, "photo.orf");
+    }
+
     [TestMethod]
     public async Task GetPhotoByIdAsync_OnlyOwnGroupSiblings_NotOtherGroups()
     {

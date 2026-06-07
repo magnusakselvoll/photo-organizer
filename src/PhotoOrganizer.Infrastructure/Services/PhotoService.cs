@@ -77,7 +77,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
                 .Select(p => new PhotoVersionDto
                 {
                     Id = p.Id,
-                    FileName = p.FileName,
+                    FileName = Path.GetFileName(p.FilePath),
                     FolderType = p.FolderType.ToString(),
                     FilePath = p.FilePath,
                     IsPreferred = p.IsPreferred,
@@ -158,7 +158,7 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
     {
         Id = photo.Id,
         FilePath = photo.FilePath,
-        FileName = photo.FileName,
+        FileName = Path.GetFileName(photo.FilePath),
         CapturedAt = photo.CapturedAt,
         EffectiveDate = photo.CapturedAt ?? photo.FileModifiedAt,
         FolderType = photo.FolderType.ToString(),

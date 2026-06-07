@@ -18,7 +18,7 @@ public sealed class PhotoServiceDisplayableFilterTests
     private static Photo Make(string name, string extension, bool isPreferred = false, Guid? duplicateGroupId = null) => new()
     {
         Id = Guid.NewGuid(),
-        FilePath = $@"C:\photos\{name}{extension}",
+        FilePath = $"/photos/{name}{extension}",
         FileName = $"{name}{extension}",
         FolderType = FolderType.Originals,
         CapturedAt = AnyDate,

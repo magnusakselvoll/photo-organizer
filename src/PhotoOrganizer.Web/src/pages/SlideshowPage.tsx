@@ -47,6 +47,10 @@ export default function SlideshowPage() {
 
   const slideshow = useSlideshow({ intervalMs });
 
+  // Feedback overlay — shown briefly on keyboard actions (and for 10s on info / help).
+  // Declared before the crossfade effect so hideKey can be called when the photo changes.
+  const overlay = useOverlayMessage();
+
   // Crossfade: maintain current + previous display state
   const [currentDisplay, setCurrentDisplay] = useState<DisplayState | null>(null);
   const [previousDisplay, setPreviousDisplay] = useState<DisplayState | null>(null);
@@ -58,6 +62,9 @@ export default function SlideshowPage() {
     if (!photo || photo.id === lastPhotoIdRef.current) return;
 
     lastPhotoIdRef.current = photo.id;
+
+    // Dismiss the info panel when the photo changes — it would otherwise show stale info.
+    overlay.hideKey('info');
 
     setCurrentDisplay(prev => {
       if (prev) {
@@ -71,7 +78,7 @@ export default function SlideshowPage() {
         key: displayKeyRef.current,
       };
     });
-  }, [slideshow.currentPhoto, intervalMs, transitionMs]);
+  }, [slideshow.currentPhoto, intervalMs, transitionMs, overlay]);
 
   // Controls overlay — show on cursor movement, hide after inactivity
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -90,9 +97,6 @@ export default function SlideshowPage() {
       if (hideTimerRef.current !== null) clearTimeout(hideTimerRef.current);
     };
   }, []);
-
-  // Feedback overlay — shown briefly on keyboard actions (and for 10s on info / help)
-  const overlay = useOverlayMessage();
 
   const handleExit = useCallback(() => navigate('/'), [navigate]);
 
@@ -116,23 +120,24 @@ export default function SlideshowPage() {
     overlay.showMessage(`Display time: ${formatDuration(next)}`);
   }, [intervalSeconds, overlay]);
 
-  // Info panel
+  // Info panel — toggles on repeated 'i', hides on photo change (see photo-change effect below)
   const handleShowInfo = useCallback(() => {
     if (!currentDisplay) return;
-    overlay.showMessage(
+    overlay.toggleMessage(
       <PhotoInfoPanel photo={currentDisplay.photo} intervalSeconds={intervalSeconds} />,
       INFO_DURATION_MS,
+      'info',
     );
   }, [currentDisplay, intervalSeconds, overlay]);
 
-  // Index info
+  // Index info — toggles on repeated 'x'
   const handleShowIndex = useCallback(() => {
-    overlay.showMessage(<IndexInfoPanel />, INFO_DURATION_MS);
+    overlay.toggleMessage(<IndexInfoPanel />, INFO_DURATION_MS, 'index');
   }, [overlay]);
 
-  // Shortcut help
+  // Shortcut help — toggles on repeated '?'
   const handleShowHelp = useCallback(() => {
-    overlay.showMessage(<ShortcutHelp />, INFO_DURATION_MS);
+    overlay.toggleMessage(<ShortcutHelp />, INFO_DURATION_MS, 'help');
   }, [overlay]);
 
   useKeyboardNavigation({

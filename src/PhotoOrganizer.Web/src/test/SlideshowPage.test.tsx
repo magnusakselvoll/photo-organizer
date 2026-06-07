@@ -32,6 +32,7 @@ const mockPhoto2 = {
 vi.mock('../api/client', () => ({
   getConfig: vi.fn(),
   getSlideshowNext: vi.fn(),
+  getIndexStats: vi.fn(),
   imageUrl: (id: string) => `/api/photos/${id}/image`,
 }));
 
@@ -68,6 +69,12 @@ beforeEach(() => {
   vi.mocked(client.getConfig).mockResolvedValue({
     scanRoots: [],
     slideshow: { intervalSeconds: 8, transitionMs: 500 },
+  });
+  vi.mocked(client.getIndexStats).mockResolvedValue({
+    complete: true,
+    totalPhotoCount: 42,
+    sidecarSizeBytes: 1024,
+    folders: [],
   });
 });
 
@@ -135,6 +142,87 @@ test('pressing Escape navigates back to browse page', async () => {
   });
 
   expect(screen.getByText('Browse page')).toBeInTheDocument();
+});
+
+test('pressing i shows the info panel; pressing i again hides it (toggle)', async () => {
+  vi.mocked(client.getSlideshowNext).mockResolvedValue(mockPhoto1);
+
+  renderSlideshow();
+  await flushPromises();
+
+  // Info panel not visible yet
+  expect(screen.queryByText('Folder type')).not.toBeInTheDocument();
+
+  // First i press — panel appears
+  await act(async () => { pressKey('i'); });
+  expect(screen.getByText('Folder type')).toBeInTheDocument();
+
+  // Second i press — panel hides
+  await act(async () => { pressKey('i'); });
+  expect(screen.queryByText('Folder type')).not.toBeInTheDocument();
+});
+
+test('info panel hides when the photo advances', async () => {
+  vi.mocked(client.getSlideshowNext)
+    .mockResolvedValueOnce(mockPhoto1)
+    .mockResolvedValueOnce(mockPhoto2)
+    .mockResolvedValue(mockPhoto1);
+
+  renderSlideshow();
+  await flushPromises();
+
+  // Open the info panel while photo1 is showing
+  await act(async () => { pressKey('i'); });
+  expect(screen.getByText('Folder type')).toBeInTheDocument();
+
+  // Advance to photo2 via ArrowRight
+  await act(async () => { pressKey('ArrowRight'); });
+  await flushPromises();
+
+  // Info panel should have been dismissed
+  expect(screen.queryByText('Folder type')).not.toBeInTheDocument();
+});
+
+test('info panel hides when slideshow auto-advances', async () => {
+  vi.mocked(client.getSlideshowNext)
+    .mockResolvedValueOnce(mockPhoto1)
+    .mockResolvedValueOnce(mockPhoto2)
+    .mockResolvedValue(mockPhoto1);
+
+  renderSlideshow();
+  await flushPromises();
+
+  // Open the info panel
+  await act(async () => { pressKey('i'); });
+  expect(screen.getByText('Folder type')).toBeInTheDocument();
+
+  // Auto-advance fires after the 8s configured interval
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(8_000);
+  });
+  await flushPromises();
+
+  // Info panel should be gone (photo changed)
+  expect(screen.queryByText('Folder type')).not.toBeInTheDocument();
+});
+
+test('pressing x shows the index panel; pressing x again hides it (toggle)', async () => {
+  vi.mocked(client.getSlideshowNext).mockResolvedValue(mockPhoto1);
+
+  renderSlideshow();
+  await flushPromises();
+
+  // Index panel not visible yet
+  expect(screen.queryByText(/sidecar size/i)).not.toBeInTheDocument();
+
+  // First x press — panel appears (IndexInfoPanel fetches stats; flush promises)
+  await act(async () => { pressKey('x'); });
+  await flushPromises();
+  expect(screen.getByText(/sidecar size/i)).toBeInTheDocument();
+
+  // Second x press — panel hides
+  await act(async () => { pressKey('x'); });
+  expect(screen.queryByText(/sidecar size/i)).not.toBeInTheDocument();
 });
 
 test('auto-advances after the configured interval using the prefetched photo', async () => {

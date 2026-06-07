@@ -122,6 +122,8 @@ public sealed class PhotoServiceDisplayOrderTests
     {
         private readonly IReadOnlyList<Photo> _photos = photos.ToList();
 
+        public long Version => 0;
+
         public Task<IReadOnlyList<Photo>> GetAllPhotosAsync() => Task.FromResult(_photos);
         public Task<Photo?> GetByIdAsync(Guid id) => Task.FromResult(_photos.FirstOrDefault(p => p.Id == id));
     }

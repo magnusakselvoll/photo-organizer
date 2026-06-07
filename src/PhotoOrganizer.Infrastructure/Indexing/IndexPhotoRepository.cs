@@ -9,6 +9,8 @@ namespace PhotoOrganizer.Infrastructure.Indexing;
 /// </summary>
 public sealed class IndexPhotoRepository(PhotoIndex index) : IPhotoRepository
 {
+    public long Version => index.Version;
+
     public Task<IReadOnlyList<Photo>> GetAllPhotosAsync() =>
         Task.FromResult(index.SnapshotPhotos());
 

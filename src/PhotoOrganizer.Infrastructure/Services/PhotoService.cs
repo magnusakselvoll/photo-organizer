@@ -7,10 +7,52 @@ namespace PhotoOrganizer.Infrastructure.Services;
 
 public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
 {
+    // ─── Sorted-view cache (see ADR 010) ─────────────────────────────────────
+    //
+    // The singleton PhotoService caches a point-in-time sorted snapshot of all
+    // displayable photos. The cache is keyed by IPhotoRepository.Version, which
+    // is bumped on every AddPhoto call by the background indexer. Once indexing
+    // is complete the version stabilises and every browse request is a cache hit,
+    // eliminating the per-request O(N log N) snapshot+sort that caused multi-
+    // second stalls on 10k–100k photo libraries.
+    //
+    // Thread-safety: Volatile.Read/Write ensures the reference is exchanged
+    // atomically without a lock. Concurrent rebuilds during the indexing window
+    // are benign — last writer wins and all candidates produce equivalent results
+    // for the same version.
+
+    private sealed record CachedView(long Version, IReadOnlyList<Photo> Sorted);
+    private CachedView? _cache;
+
+    private async Task<IReadOnlyList<Photo>> GetSortedDisplayableAsync()
+    {
+        // Read Version BEFORE snapshotting: conservative — we may rebuild
+        // unnecessarily if the version increments between these two reads, but
+        // we never label a snapshot with a version newer than it actually reflects.
+        var version = repository.Version;
+        var cached = Volatile.Read(ref _cache);
+
+        if (cached is not null && cached.Version == version)
+            return cached.Sorted;
+
+        var all = await repository.GetAllPhotosAsync();
+
+        var sorted = all
+            .Where(p => DisplayableImageFormats.IsDisplayable(p.FilePath))
+            .OrderByDescending(p => p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(p => p.Id)
+            .ToList();
+
+        Volatile.Write(ref _cache, new CachedView(version, sorted));
+        return sorted;
+    }
+
+    // ─── Public service methods ───────────────────────────────────────────────
+
     public async Task<PhotoPageDto> GetPhotosAsync(PhotoFilter filter)
     {
-        var all = await repository.GetAllPhotosAsync();
-        var filtered = ApplyFilters(all, filter);
+        var sorted = await GetSortedDisplayableAsync();
+        var filtered = ApplyNarrowing(sorted, filter);
         var totalCount = filtered.Count;
 
         // Keyset (cursor) path — used by the infinite-scroll grid.
@@ -88,14 +130,15 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
         return ToDto(photo, versions);
     }
 
-    private static List<Photo> ApplyFilters(IReadOnlyList<Photo> photos, PhotoFilter filter)
-    {
-        IEnumerable<Photo> result = photos;
+    // ─── Per-request narrowing filters ───────────────────────────────────────
+    //
+    // Applied to the pre-sorted cached list. All filters are order-preserving
+    // (Where predicates / Deduplicate), so the result inherits the sort order
+    // established in GetSortedDisplayableAsync.
 
-        // Only serve photos the browser can actually display (natively or via transcoding).
-        // Non-displayable files (RAW formats, bare TIFF) are never shown in the grid or
-        // slideshow but remain accessible via the version panel's /image download endpoint.
-        result = result.Where(p => DisplayableImageFormats.IsDisplayable(p.FilePath));
+    private static List<Photo> ApplyNarrowing(IReadOnlyList<Photo> sorted, PhotoFilter filter)
+    {
+        IEnumerable<Photo> result = sorted;
 
         if (filter.Folder is not null)
             result = result.Where(p => p.FilePath.StartsWith(filter.Folder, StringComparison.OrdinalIgnoreCase));
@@ -127,13 +170,6 @@ public sealed class PhotoService(IPhotoRepository repository) : IPhotoService
 
         if (filter.Deduplicated)
             result = Deduplicate(result);
-
-        // Display order: capturedAt descending, falling back to file-system mtime when absent.
-        // Photos still being indexed (FileModifiedAt also null) sort to the end.
-        // Id is a stable tiebreaker so keyset cursors produce deterministic pages.
-        result = result
-            .OrderByDescending(p => p.CapturedAt ?? p.FileModifiedAt ?? DateTimeOffset.MinValue)
-            .ThenByDescending(p => p.Id);
 
         return result.ToList();
     }

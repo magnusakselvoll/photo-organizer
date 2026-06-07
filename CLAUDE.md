@@ -12,27 +12,27 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
 - **Namespace prefix**: `PhotoOrganizer.*`
 - **Backend**: .NET 10, ASP.NET Core, C#; **Frontend**: React + TypeScript, Vite, pnpm
 - **Ports (dev)**: Backend `:6192`, Frontend `:6173`
-- **Image transcoding**: HEIC/HEIF files are transcoded to JPEG on the fly in the `/api/photos/{id}/image` endpoint using `Magick.NET-Q8-AnyCPU` (`MagickImageTranscoder` in `src/PhotoOrganizer.Infrastructure/Imaging/`). The `IImageTranscoder` interface lives in `src/PhotoOrganizer.Domain/Interfaces/`. No caching — each request transcodes fresh; add caching in a future pass.
-- **Displayability**: `DisplayableImageFormats` (`src/PhotoOrganizer.Domain/DisplayableImageFormats.cs`) is the single source of truth for which formats are servable. `PhotoService.ApplyFilters` filters every grid and slideshow listing to displayable photos only (browser-native + transcodable). Non-displayable files (RAW, bare TIFF) are never served in listings but remain downloadable via the version panel's `/api/photos/{id}/image` endpoint. `MagickImageTranscoder` and `DuplicatesStep` both delegate to this helper.
-- **Discoverability**: `SupportedPhotoExtensions` (`src/PhotoOrganizer.Domain/SupportedPhotoExtensions.cs`) is the single source of truth for which extensions the crawler (`FileDiscoverer`) and indexer (`RandomizedSidecarIndexer`) recognise as photos. It is constructed as `DisplayableImageFormats.AllDisplayableExtensions ∪ {RAW/TIFF}`, guaranteeing every displayable/transcodable format is also discoverable. A unit test in `tests/PhotoOrganizer.Application.Tests/SupportedPhotoExtensionsTests.cs` pins the displayable ⊆ discoverable invariant so the two lists cannot silently diverge.
-- **Browse grid pagination**: `/api/photos` supports two pagination modes. (1) **Keyset cursor** (`cursor` + `limit` params, used by the grid): stable, non-overlapping pages ordered newest-first; cursor encodes `(effectiveTimestamp UTC ticks, id)` as base64url. `PhotoService.EncodeCursor`/`DecodeCursor` handle this. Sort has an `Id` tiebreaker (`ThenByDescending(p => p.Id)`) to make cursors deterministic. (2) **Offset** (`page` + `pageSize`): legacy path, kept for the slideshow endpoint and future callers. `PhotoPageDto.NextCursor` is `null` on offset responses.
+- **Image transcoding**: HEIC/HEIF files are transcoded to JPEG on the fly in the `/api/photos/{id}/image` endpoint using `Magick.NET-Q8-AnyCPU` (`MagickImageTranscoder` in `src/PhotoOrganizer.Infrastructure/Imaging/`). The `IImageTranscoder` interface lives in `src/PhotoOrganizer.Domain/Interfaces/`. No caching — each request transcodes fresh (see ADR 006).
+- **Displayability**: `DisplayableImageFormats` (`src/PhotoOrganizer.Domain/DisplayableImageFormats.cs`) is the single source of truth for which formats are servable. `PhotoService.ApplyFilters` filters every grid and slideshow listing to displayable photos only (browser-native + transcodable). Non-displayable files (RAW, bare TIFF) are never served in listings but remain downloadable via the version panel's `/api/photos/{id}/image` endpoint. `MagickImageTranscoder` and `DuplicatesStep` both delegate to this helper (see ADR 007).
+- **Discoverability**: `SupportedPhotoExtensions` (`src/PhotoOrganizer.Domain/SupportedPhotoExtensions.cs`) is the single source of truth for which extensions the crawler (`FileDiscoverer`) and indexer (`RandomizedSidecarIndexer`) recognise as photos. Constructed as `DisplayableImageFormats.AllDisplayableExtensions ∪ {RAW/TIFF}`; `displayable ⊆ discoverable` is pinned by a unit test in `tests/PhotoOrganizer.Application.Tests/SupportedPhotoExtensionsTests.cs` (see ADR 007).
+- **Browse grid pagination**: `/api/photos` supports two modes. (1) **Keyset cursor** (`cursor` + `limit`, used by the grid): stable, non-overlapping pages ordered newest-first; cursor encodes `(effectiveTimestamp UTC ticks, id)` as base64url — `PhotoService.EncodeCursor`/`DecodeCursor`. (2) **Offset** (`page` + `pageSize`): legacy path, kept for slideshow. `PhotoPageDto.NextCursor` is `null` on offset responses (see ADR 004).
 - **Browse grid virtualizer**: `@tanstack/react-virtual` (`useVirtualizer`) windows rows. Only rows within the visible viewport ± 5-row overscan are in the DOM. Column count is derived from container width via `ResizeObserver` using `columnsForWidth()` in `src/PhotoOrganizer.Web/src/hooks/useInfinitePhotos.ts`. The `react-hooks/incompatible-library` lint warning on `useVirtualizer` is expected — it's a React Compiler note; we don't use the compiler. While scrolling, `PhotoGrid` shows a floating month/year pill (`.scrub-date`) that fades out on idle — computed from `PhotoDto.effectiveDate` (the sort key: `CapturedAt ?? FileModifiedAt`, exposed by the backend).
-- **Live index updates**: `BrowsePage` polls `GET /api/index/status` every 4 s; when the photo count grows it calls `getPhotos` with no cursor to fetch the newest arrivals and prepends them via `useInfinitePhotos.mergeNewest()`. Polling stops when `complete: true`.
+- **Live index updates**: `BrowsePage` polls `GET /api/index/status` every 4 s; when the photo count grows it calls `getPhotos` with no cursor to fetch the newest arrivals and prepends them via `useInfinitePhotos.mergeNewest()`. Polling stops when `complete: true` (see ADR 003 for the progressive indexer and the warm-cache reversal).
 - **Browse filters**: `/api/photos` accepts `folder`, `type`, `deduplicated`, `fileName` (case-insensitive substring on the filename including extension), `dateFrom`/`dateTo` (inclusive day-granularity bounds on effective date = `CapturedAt ?? FileModifiedAt`, compared in UTC). All filters are optional and applied in-memory by `PhotoService.ApplyFilters` before sort/pagination, so they compose safely with the keyset cursor. The frontend (`BrowsePage.tsx`) reads/writes filter state via `useSearchParams` (react-router-dom v7) so filters are URL-encoded, deep-linkable, and survive refresh. Filename is debounced 300 ms before hitting the URL/API. `InfinitePhotosFilters.filterKey` must include every filter field or re-fetch won't trigger on change.
 - **Deferred (issue 39 follow-ups)**: tags filter (waiting for the crawler to write tags into `.meta.json` sidecars — the field is already read and mapped end-to-end, only the filter UI is missing).
-- **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`
-  - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC
+- **Crawler**: .NET 10 Console App (see ADR 001); key packages: `System.CommandLine`, `MetadataExtractor`, `Microsoft.Data.Sqlite`; pipeline/step framework with tiered change detection (see ADR 009).
+  - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC (see ADR 001).
   - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
-  - **Process launch**: crawler is started via `ProcessStartInfo.ArgumentList` (not `Arguments`) so embedded spaces or flags in user-supplied fields cannot re-tokenize into extra CLI arguments.
-- **Security — `POST /api/crawler/start`**: requires the `X-Requested-With` header (CSRF guard; forces CORS preflight, blocking disallowed origins); `Mode`/`Step` are validated against the allowlist in `StartCrawlValidation` (`src/PhotoOrganizer.Application/Crawler/StartCrawlValidation.cs`) — valid modes: `full`, `incremental`, `targeted`; valid steps: `metadata`, `duplicates`. Returns 403 if header absent, 400 if mode/step invalid.
-- **Security — bind address**: server binds loopback-only by default (dev: `localhost:6192` via `launchSettings.json`; published: Kestrel default `localhost:5000`). Do not bind to `0.0.0.0` without auth + rate limiting; see SPEC.md §10.
+  - **Process launch**: crawler is started via `ProcessStartInfo.ArgumentList` (not `Arguments`) so user-supplied fields cannot re-tokenize into extra CLI arguments (see ADR 005).
+- **Security — `POST /api/crawler/start`**: requires the `X-Requested-With` header (CSRF guard); `Mode`/`Step` validated against `StartCrawlValidation` (`src/PhotoOrganizer.Application/Crawler/StartCrawlValidation.cs`) — valid modes: `full`, `incremental`, `targeted`; valid steps: `metadata`, `duplicates`. Returns 403 if header absent, 400 if invalid (see ADR 005).
+- **Security — bind address**: server binds loopback-only by default (dev: `localhost:6192` via `launchSettings.json`; published: Kestrel default `localhost:5000`). Do not bind to `0.0.0.0` without auth + rate limiting (see ADR 005).
 
 ## Patterns to Follow
 
-- **Repository pattern** for all data access — domain defines interfaces, infrastructure implements them
-- **Pluggable providers** — camera/storage/detection strategies behind interfaces, easy to swap
-- **Sidecar files** (`_folder.json`, `<name>.<ext>.meta.json`) for all metadata — no database required. Photo sidecars keep the full filename including extension so RAW+JPEG pairs in the same folder each get a distinct sidecar file.
-- **Lazy loading** — index and cache photo metadata on demand rather than at startup
+- **Repository pattern** for all data access — domain defines interfaces, infrastructure implements them (see ADR 008)
+- **Pluggable providers** — camera/storage/detection strategies behind interfaces, easy to swap (see ADR 008)
+- **Sidecar files** (`_folder.json`, `<name>.<ext>.meta.json`) for all metadata — no database required; photo sidecars use the full filename including extension so RAW+JPEG pairs in the same folder each get a distinct sidecar (see ADR 002)
+- **Lazy loading** — index photo metadata progressively in a background service rather than blocking at startup (see ADR 003)
 - **Thread-safe file access** — use semaphore locks when reading/writing shared state
 - **Centralized package versions** — `Directory.Packages.props`; no version numbers inside individual `.csproj` files
 
@@ -141,9 +141,19 @@ HEIC fixture lives in `tests/fixtures/heic/` (separate so it doesn't disturb the
 
 To regenerate JPEG fixtures: `dotnet run --project tools/PhotoOrganizer.FixtureGenerator`. The generator (`tools/PhotoOrganizer.FixtureGenerator/`) uses SixLabors.ImageSharp 3.x (Apache licensed) to write 64×64 JPEGs with EXIF data.
 
+## Architecture Decision Records (ADRs)
+
+ADRs live in `docs/adr/NNN-kebab-title.md`. The format mirrors `docs/adr/001-crawler-stack.md`: `## Status`, `## Context`, `## Decision`, `## Consequences`. Next available number after this issue: **010**.
+
+**During issue planning**, assess whether the work introduces or reverses an architectural decision — a cross-cutting pattern, a tech/library choice, a security-posture change, a data-contract change, or a consciously-accepted tradeoff (including deliberate deferrals and reversals). If so, propose an ADR as part of the plan.
+
+**Always ask the user before creating or materially changing an ADR.** Never write an ADR without explicit confirmation.
+
+**Single source of truth**: rationale, alternatives considered, and accepted tradeoffs belong in the ADR. CLAUDE.md and SPEC.md reference the ADR (`see ADR NNN`) rather than re-explaining it.
+
 ## Documentation Updates
 
-When closing issues via PR, update as needed: **SPEC.md** (requirements/behavior), **README.md** (setup/config), **CLAUDE.md** (implementation details/build/known issues).
+When closing issues via PR, update as needed: **SPEC.md** (requirements/behavior), **README.md** (setup/config), **CLAUDE.md** (implementation details/build/known issues), **docs/adr/** (if the change introduces or reverses an architectural decision — always ask first).
 
 ## Coding Style
 

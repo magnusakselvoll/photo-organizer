@@ -68,6 +68,17 @@ public sealed class CrawlerDatabase
         return connection;
     }
 
+    /// <summary>
+    /// Opens a connection and begins a transaction for one file's DB writes.
+    /// Disposing the returned handle without calling <see cref="CrawlFileTransaction.Commit"/>
+    /// rolls back automatically.
+    /// </summary>
+    public CrawlFileTransaction BeginFileTransaction()
+    {
+        var connection = OpenConnection();
+        return new CrawlFileTransaction(connection, connection.BeginTransaction());
+    }
+
     public void Initialize()
     {
         using var connection = OpenConnection();

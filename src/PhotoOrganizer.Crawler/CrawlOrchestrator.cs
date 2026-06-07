@@ -16,6 +16,7 @@ public sealed class CrawlOrchestrator
     private readonly ChangeDetector _changeDetector;
     private readonly PipelineRunner _pipeline;
     private readonly IReadOnlyList<IBatchProcessingStep> _batchSteps;
+    private readonly CrawlerDatabase _db;
 
     public CrawlOrchestrator(
         ICrawledFileRepository fileRepo,
@@ -24,6 +25,7 @@ public sealed class CrawlOrchestrator
         ICrawlTargetResolver resolver,
         ChangeDetector changeDetector,
         PipelineRunner pipeline,
+        CrawlerDatabase db,
         IReadOnlyList<IBatchProcessingStep>? batchSteps = null)
     {
         _fileRepo = fileRepo;
@@ -32,6 +34,7 @@ public sealed class CrawlOrchestrator
         _resolver = resolver;
         _changeDetector = changeDetector;
         _pipeline = pipeline;
+        _db = db;
         _batchSteps = batchSteps ?? [];
     }
 
@@ -67,8 +70,7 @@ public sealed class CrawlOrchestrator
                     {
                         if (fullMode)
                         {
-                            var dbRecord = await _fileRepo.UpsertAsync(file.FilePath, null, file.LastModified);
-                            await _pipeline.RunAsync(file.FilePath, dbRecord);
+                            await ProcessFileWithPipelineAsync(file, null);
                             filesProcessed++;
                         }
                         else
@@ -90,8 +92,7 @@ public sealed class CrawlOrchestrator
 
                                 case ChangeKind.New:
                                 case ChangeKind.Changed:
-                                    var dbRecord = await _fileRepo.UpsertAsync(file.FilePath, change.ComputedHash, file.LastModified);
-                                    await _pipeline.RunAsync(file.FilePath, dbRecord);
+                                    await ProcessFileWithPipelineAsync(file, change.ComputedHash);
                                     filesProcessed++;
                                     break;
                             }
@@ -144,6 +145,21 @@ public sealed class CrawlOrchestrator
             await _logRepo.CompleteCrawlAsync(crawlId, "failed", filesScanned, filesProcessed, filesErrored, ex.Message);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Upserts the file record, runs the processing pipeline (which writes the sidecar at the
+    /// very end of <see cref="PipelineRunner.RunAsync"/>), then commits the DB transaction — so
+    /// the DB is only advanced once the sidecar is durably on disk.  A crash before the sidecar
+    /// write rolls the transaction back automatically on dispose, leaving both stores in their
+    /// prior consistent state.
+    /// </summary>
+    private async Task ProcessFileWithPipelineAsync(DiscoveredFile file, string? computedHash)
+    {
+        using var tx = _db.BeginFileTransaction();
+        var dbRecord = await _fileRepo.UpsertAsync(file.FilePath, computedHash, file.LastModified, tx);
+        await _pipeline.RunAsync(file.FilePath, dbRecord, tx);
+        tx.Commit();
     }
 
     public async Task RunTargetedAsync(IReadOnlyList<string> folderPaths, string stepName)

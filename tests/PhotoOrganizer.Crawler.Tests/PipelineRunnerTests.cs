@@ -149,14 +149,14 @@ public class PipelineRunnerTests
         public List<(string StepName, string Status)> StepRuns { get; } = [];
 
         public Task<CrawledFileRecord?> GetByPathAsync(string filePath) => Task.FromResult<CrawledFileRecord?>(null);
-        public Task<CrawledFileRecord> UpsertAsync(string filePath, string? fileHash, DateTimeOffset modifiedAt) =>
+        public Task<CrawledFileRecord> UpsertAsync(string filePath, string? fileHash, DateTimeOffset modifiedAt, CrawlFileTransaction? tx = null) =>
             Task.FromResult(new CrawledFileRecord { Id = 1, FilePath = filePath, FirstSeenAt = DateTimeOffset.UtcNow });
         public Task MarkDeletedAsync(IEnumerable<int> fileIds) => Task.CompletedTask;
         public Task UpdateModifiedAtAsync(int fileId, DateTimeOffset modifiedAt) => Task.CompletedTask;
         public Task<IReadOnlyList<CrawledFileRecord>> GetActiveFilesAsync() =>
             Task.FromResult<IReadOnlyList<CrawledFileRecord>>([]);
 
-        public Task RecordStepRunAsync(int fileId, string stepName, int stepVersion, string status, string? errorMessage)
+        public Task RecordStepRunAsync(int fileId, string stepName, int stepVersion, string status, string? errorMessage, CrawlFileTransaction? tx = null)
         {
             StepRuns.Add((stepName, status));
             return Task.CompletedTask;

@@ -18,7 +18,7 @@ public sealed class PipelineRunner
         _fileRepo = fileRepo;
     }
 
-    public async Task RunAsync(string filePath, CrawledFileRecord dbRecord)
+    public async Task RunAsync(string filePath, CrawledFileRecord dbRecord, CrawlFileTransaction? tx = null)
     {
         var sidecar = await _sidecarStore.ReadPhotoMetaAsync(filePath)
             ?? new PhotoMetaSidecar();
@@ -51,7 +51,7 @@ public sealed class PipelineRunner
                     CompletedAt = DateTimeOffset.UtcNow
                 };
 
-                await _fileRepo.RecordStepRunAsync(dbRecord.Id, step.Name, step.Version, "completed", null);
+                await _fileRepo.RecordStepRunAsync(dbRecord.Id, step.Name, step.Version, "completed", null, tx);
                 anyStepRan = true;
 
                 Log.Debug("Completed step {StepName} for {FilePath}", step.Name, filePath);
@@ -59,7 +59,7 @@ public sealed class PipelineRunner
             catch (Exception ex)
             {
                 Log.Warning(ex, "Step {StepName} failed for {FilePath}", step.Name, filePath);
-                await _fileRepo.RecordStepRunAsync(dbRecord.Id, step.Name, step.Version, "failed", ex.Message);
+                await _fileRepo.RecordStepRunAsync(dbRecord.Id, step.Name, step.Version, "failed", ex.Message, tx);
                 // Stop processing remaining steps for this file since later steps may depend on this one
                 break;
             }

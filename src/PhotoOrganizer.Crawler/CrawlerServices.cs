@@ -33,7 +33,7 @@ public sealed class CrawlerServices : IDisposable
         var pipeline = new PipelineRunner(registry, sidecarStore, fileRepo);
         var resolver = new CrawlTargetResolver(sidecarStore, discoverer);
 
-        var orchestrator = new CrawlOrchestrator(fileRepo, logRepo, sidecarStore, resolver, changeDetector, pipeline, registry.BatchSteps);
+        var orchestrator = new CrawlOrchestrator(fileRepo, logRepo, sidecarStore, resolver, changeDetector, pipeline, db, registry.BatchSteps);
         return new CrawlerServices(orchestrator);
     }
 

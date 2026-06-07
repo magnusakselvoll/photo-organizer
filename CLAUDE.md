@@ -25,6 +25,7 @@ Reference implementation to draw patterns from: https://github.com/magnusakselvo
   - **Python sub-tool strategy**: Image-heavy steps as standalone Python CLIs under `tools/`, invoked via `Process.Start()` — share sidecar files and SQLite DB, no special IPC (see ADR 001).
   - **Folder discovery**: `ScanRoots` are searched recursively for `_folder.json` files; each such folder becomes an independent crawl unit (`CrawlTargetResolver`). Photos belong to the nearest ancestor unit; photos not under any unit are skipped. Mirrors `FileSystemFolderRepository` on the server side.
   - **Process launch**: crawler is started via `ProcessStartInfo.ArgumentList` (not `Arguments`) so user-supplied fields cannot re-tokenize into extra CLI arguments (see ADR 005).
+  - **Per-file write consistency**: `.meta.json` sidecar is authoritative; `crawled_files`/`step_runs` are a reconcilable cache. Each file's upsert + step-run DB writes share one `SqliteTransaction` (`CrawlFileTransaction`) that commits **only after** the sidecar is written — a crash before the sidecar rolls back the DB atomically; a crash after but before commit re-detects `Changed` and reprocesses idempotently. `step_runs` is advisory/audit only (see ADR 011).
 - **Security — `POST /api/crawler/start`**: requires the `X-Requested-With` header (CSRF guard); `Mode`/`Step` validated against `StartCrawlValidation` (`src/PhotoOrganizer.Application/Crawler/StartCrawlValidation.cs`) — valid modes: `full`, `incremental`, `targeted`; valid steps: `metadata`, `duplicates`. Returns 403 if header absent, 400 if invalid (see ADR 005).
 - **Security — bind address**: server binds loopback-only by default (dev: `localhost:6192` via `launchSettings.json`; published: Kestrel default `localhost:5000`). Do not bind to `0.0.0.0` without auth + rate limiting (see ADR 005).
 
@@ -144,7 +145,7 @@ To regenerate JPEG fixtures: `dotnet run --project tools/PhotoOrganizer.FixtureG
 
 ## Architecture Decision Records (ADRs)
 
-ADRs live in `docs/adr/NNN-kebab-title.md`. The format mirrors `docs/adr/001-crawler-stack.md`: `## Status`, `## Context`, `## Decision`, `## Consequences`. Next available number after this issue: **011**.
+ADRs live in `docs/adr/NNN-kebab-title.md`. The format mirrors `docs/adr/001-crawler-stack.md`: `## Status`, `## Context`, `## Decision`, `## Consequences`. Next available number after this issue: **012**.
 
 **During issue planning**, assess whether the work introduces or reverses an architectural decision — a cross-cutting pattern, a tech/library choice, a security-posture change, a data-contract change, or a consciously-accepted tradeoff (including deliberate deferrals and reversals). If so, propose an ADR as part of the plan.
 

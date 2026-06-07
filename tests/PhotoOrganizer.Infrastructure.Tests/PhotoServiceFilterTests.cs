@@ -61,7 +61,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("IMG_1001", page.Items[0].FileName);
+        Assert.AreEqual("IMG_1001.jpg", page.Items[0].FileName);
     }
 
     [TestMethod]
@@ -82,7 +82,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("photo", page.Items[0].FileName);
+        Assert.AreEqual("photo.png", page.Items[0].FileName);
         Assert.IsTrue(page.Items[0].FilePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -187,9 +187,9 @@ public sealed class PhotoServiceFilterTests
 
         Assert.AreEqual(2, page.TotalCount);
         var names = page.Items.Select(p => p.FileName).ToList();
-        CollectionAssert.Contains(names, "jan");
-        CollectionAssert.Contains(names, "jun");
-        CollectionAssert.DoesNotContain(names, "dec");
+        CollectionAssert.Contains(names, "jan.jpg");
+        CollectionAssert.Contains(names, "jun.jpg");
+        CollectionAssert.DoesNotContain(names, "dec.jpg");
     }
 
     // ─── Date range — both bounds ─────────────────────────────────────────────
@@ -213,7 +213,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("jun", page.Items[0].FileName);
+        Assert.AreEqual("jun.jpg", page.Items[0].FileName);
     }
 
     [TestMethod]
@@ -235,7 +235,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("jun", page.Items[0].FileName);
+        Assert.AreEqual("jun.jpg", page.Items[0].FileName);
     }
 
     [TestMethod]
@@ -277,7 +277,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("dated", page.Items[0].FileName);
+        Assert.AreEqual("dated.jpg", page.Items[0].FileName);
     }
 
     [TestMethod]
@@ -297,7 +297,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("dated", page.Items[0].FileName);
+        Assert.AreEqual("dated.jpg", page.Items[0].FileName);
     }
 
     [TestMethod]
@@ -339,7 +339,7 @@ public sealed class PhotoServiceFilterTests
         });
 
         Assert.AreEqual(1, page.TotalCount);
-        Assert.AreEqual("IMG_1002", page.Items[0].FileName);
+        Assert.AreEqual("IMG_1002.jpg", page.Items[0].FileName);
     }
 
     // ─── Cursor stability with new filters ───────────────────────────────────

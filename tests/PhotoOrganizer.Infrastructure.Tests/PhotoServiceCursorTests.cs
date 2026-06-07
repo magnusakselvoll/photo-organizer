@@ -22,7 +22,7 @@ public sealed class PhotoServiceCursorTests
         Guid? id = null) => new()
     {
         Id = id ?? Guid.NewGuid(),
-        FilePath = $@"C:\photos\{name}.jpg",
+        FilePath = $"/photos/{name}.jpg",
         FileName = name,
         FolderType = FolderType.Originals,
         CapturedAt = capturedAt,
@@ -86,8 +86,8 @@ public sealed class PhotoServiceCursorTests
         var page = await Service(photos).GetPhotosAsync(CursorFilter(limit: 2));
 
         Assert.AreEqual(2, page.Items.Count);
-        Assert.AreEqual("may", page.Items[0].FileName);
-        Assert.AreEqual("mar", page.Items[1].FileName);
+        Assert.AreEqual("may.jpg", page.Items[0].FileName);
+        Assert.AreEqual("mar.jpg", page.Items[1].FileName);
         Assert.IsNotNull(page.NextCursor, "NextCursor should be set when more items remain");
     }
 
@@ -119,19 +119,19 @@ public sealed class PhotoServiceCursorTests
 
         var page1 = await svc.GetPhotosAsync(CursorFilter(limit: 2));
         Assert.AreEqual(2, page1.Items.Count);
-        Assert.AreEqual("p1", page1.Items[0].FileName);
-        Assert.AreEqual("p2", page1.Items[1].FileName);
+        Assert.AreEqual("p1.jpg", page1.Items[0].FileName);
+        Assert.AreEqual("p2.jpg", page1.Items[1].FileName);
         Assert.IsNotNull(page1.NextCursor);
 
         var page2 = await svc.GetPhotosAsync(CursorFilter(limit: 2, cursor: page1.NextCursor));
         Assert.AreEqual(2, page2.Items.Count);
-        Assert.AreEqual("p3", page2.Items[0].FileName);
-        Assert.AreEqual("p4", page2.Items[1].FileName);
+        Assert.AreEqual("p3.jpg", page2.Items[0].FileName);
+        Assert.AreEqual("p4.jpg", page2.Items[1].FileName);
         Assert.IsNotNull(page2.NextCursor);
 
         var page3 = await svc.GetPhotosAsync(CursorFilter(limit: 2, cursor: page2.NextCursor));
         Assert.AreEqual(1, page3.Items.Count);
-        Assert.AreEqual("p5", page3.Items[0].FileName);
+        Assert.AreEqual("p5.jpg", page3.Items[0].FileName);
         Assert.IsNull(page3.NextCursor);
     }
 
@@ -174,8 +174,8 @@ public sealed class PhotoServiceCursorTests
 
         var page = await Service(photos).GetPhotosAsync(CursorFilter(limit: 2));
 
-        Assert.AreEqual("photoB", page.Items[0].FileName);
-        Assert.AreEqual("photoA", page.Items[1].FileName);
+        Assert.AreEqual("photoB.jpg", page.Items[0].FileName);
+        Assert.AreEqual("photoA.jpg", page.Items[1].FileName);
     }
 
     // ─── New photos don't disturb a cursor ───────────────────────────────────
@@ -203,9 +203,9 @@ public sealed class PhotoServiceCursorTests
         var page2 = await svc.GetPhotosAsync(CursorFilter(limit: 2, cursor: page1.NextCursor));
 
         Assert.AreEqual(1, page2.Items.Count);
-        Assert.AreEqual("p3", page2.Items[0].FileName);
+        Assert.AreEqual("p3.jpg", page2.Items[0].FileName);
         // p1 and p2 must NOT re-appear.
-        Assert.IsFalse(page2.Items.Any(x => x.FileName is "p1" or "p2"));
+        Assert.IsFalse(page2.Items.Any(x => x.FileName is "p1.jpg" or "p2.jpg"));
     }
 
     // ─── TotalCount is always the full filtered count ─────────────────────────
@@ -241,7 +241,7 @@ public sealed class PhotoServiceCursorTests
         });
 
         Assert.AreEqual(1, page.Items.Count);
-        Assert.AreEqual("newest", page.Items[0].FileName);
+        Assert.AreEqual("newest.jpg", page.Items[0].FileName);
         Assert.IsNull(page.NextCursor, "Offset path must not set NextCursor");
     }
 

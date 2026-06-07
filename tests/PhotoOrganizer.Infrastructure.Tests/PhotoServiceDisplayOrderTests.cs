@@ -19,7 +19,7 @@ public sealed class PhotoServiceDisplayOrderTests
     private static Photo Make(string name, DateTimeOffset? capturedAt, DateTimeOffset? fileModifiedAt = null) => new()
     {
         Id = Guid.NewGuid(),
-        FilePath = $@"C:\photos\{name}.jpg",
+        FilePath = $"/photos/{name}.jpg",
         FileName = name,
         FolderType = FolderType.Originals,
         CapturedAt = capturedAt,
@@ -52,9 +52,9 @@ public sealed class PhotoServiceDisplayOrderTests
 
         var page = await GetAllAsync(photos);
 
-        Assert.AreEqual("newest", page.Items[0].FileName);
-        Assert.AreEqual("middle", page.Items[1].FileName);
-        Assert.AreEqual("oldest", page.Items[2].FileName);
+        Assert.AreEqual("newest.jpg", page.Items[0].FileName);
+        Assert.AreEqual("middle.jpg", page.Items[1].FileName);
+        Assert.AreEqual("oldest.jpg", page.Items[2].FileName);
     }
 
     // ─── FileModifiedAt fallback ──────────────────────────────────────────────
@@ -70,8 +70,8 @@ public sealed class PhotoServiceDisplayOrderTests
 
         var page = await GetAllAsync(photos);
 
-        Assert.AreEqual("new_file", page.Items[0].FileName);
-        Assert.AreEqual("old_file", page.Items[1].FileName);
+        Assert.AreEqual("new_file.jpg", page.Items[0].FileName);
+        Assert.AreEqual("old_file.jpg", page.Items[1].FileName);
     }
 
     [TestMethod]
@@ -87,8 +87,8 @@ public sealed class PhotoServiceDisplayOrderTests
 
         var page = await GetAllAsync(photos);
 
-        Assert.AreEqual("new_capture", page.Items[0].FileName);
-        Assert.AreEqual("old_capture", page.Items[1].FileName);
+        Assert.AreEqual("new_capture.jpg", page.Items[0].FileName);
+        Assert.AreEqual("old_capture.jpg", page.Items[1].FileName);
     }
 
     [TestMethod]
@@ -102,8 +102,8 @@ public sealed class PhotoServiceDisplayOrderTests
 
         var page = await GetAllAsync(photos);
 
-        Assert.AreEqual("has_dates", page.Items[0].FileName);
-        Assert.AreEqual("no_dates",  page.Items[1].FileName);
+        Assert.AreEqual("has_dates.jpg", page.Items[0].FileName);
+        Assert.AreEqual("no_dates.jpg",  page.Items[1].FileName);
     }
 
     // ─── Empty list ───────────────────────────────────────────────────────────

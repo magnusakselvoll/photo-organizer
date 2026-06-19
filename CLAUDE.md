@@ -77,9 +77,9 @@ Always use GitHub Flow when working on issues:
 
 4. **Wait for CI and fix failures**: after opening the PR, poll `gh pr checks <number>` until all checks complete. If any job fails, read the full log (`gh run view <run-id> --job <job-id> --log`), fix the root cause, commit, and push. Repeat until CI is green. Do not hand back to the user with a failing CI.
 
-5. **Merge** after review (squash merge preferred for clean history)
+5. **Merge**: done by the user outside the agentic session — never merge a PR yourself.
 
-5. **Clean up** after the user confirms a PR is merged:
+6. **Clean up** after the user confirms a PR is merged:
    - `git fetch origin && git checkout main && git pull`
    - `git branch -d <branch-name>`
 

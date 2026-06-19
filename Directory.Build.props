@@ -8,4 +8,10 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+  <!-- Suppress audit warnings for advisories with no patched version available yet.
+       Remove each entry once the upstream package publishes a fix. -->
+  <ItemGroup>
+    <!-- SQLitePCLRaw.lib.e_sqlite3 2.1.11 bundles a vulnerable native SQLite — no patch on NuGet yet -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
 </Project>

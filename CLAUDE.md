@@ -75,7 +75,9 @@ Always use GitHub Flow when working on issues:
    - Pass `--title` as a plain string; pass `--body` via a `$(cat <<'EOF' ... EOF)` heredoc — this prevents zsh from expanding backticks or `$()` inside the body as shell commands
    - Always pass `--head <branch-name> --base main` to `gh pr create`
 
-4. **Merge** after review (squash merge preferred for clean history)
+4. **Wait for CI and fix failures**: after opening the PR, poll `gh pr checks <number>` until all checks complete. If any job fails, read the full log (`gh run view <run-id> --job <job-id> --log`), fix the root cause, commit, and push. Repeat until CI is green. Do not hand back to the user with a failing CI.
+
+5. **Merge** after review (squash merge preferred for clean history)
 
 5. **Clean up** after the user confirms a PR is merged:
    - `git fetch origin && git checkout main && git pull`

@@ -18,5 +18,8 @@
     <Content Include="..\fixtures\heic\**\*" CopyToOutputDirectory="PreserveNewest">
       <Link>fixtures\heic\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </Content>
+    <Content Include="..\fixtures\heif\**\*" CopyToOutputDirectory="PreserveNewest">
+      <Link>fixtures\heif\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
   </ItemGroup>
 </Project>

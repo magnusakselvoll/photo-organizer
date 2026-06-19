@@ -7,6 +7,7 @@
     <Project Path="src/PhotoOrganizer.Crawler/PhotoOrganizer.Crawler.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PhotoOrganizer.Domain.Tests/PhotoOrganizer.Domain.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Application.Tests/PhotoOrganizer.Application.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Infrastructure.Tests/PhotoOrganizer.Infrastructure.Tests.csproj" />
     <Project Path="tests/PhotoOrganizer.Crawler.Tests/PhotoOrganizer.Crawler.Tests.csproj" />

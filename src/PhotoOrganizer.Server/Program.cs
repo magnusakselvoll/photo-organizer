@@ -120,23 +120,38 @@ app.MapGet("/api/photos/{id:guid}", async (Guid id, IPhotoService service) =>
     return photo is null ? Results.NotFound() : Results.Ok(photo);
 });
 
-app.MapGet("/api/photos/{id:guid}/image", async (Guid id, HttpContext httpContext, IPhotoRepository repository, IImageTranscoder transcoder, CancellationToken ct) =>
+app.MapGet("/api/photos/{id:guid}/image", async (Guid id, HttpContext httpContext, IPhotoRepository repository, IImageTranscoder transcoder, ILogger<Program> logger, CancellationToken ct) =>
 {
     var photo = await repository.GetByIdAsync(id);
     if (photo is null)
         return Results.NotFound();
 
-    // Set Content-Disposition: inline so the browser renders the image inline while still
-    // knowing the file's real name (e.g. when saving). SetHttpFileName handles non-ASCII
-    // names by emitting the RFC 5987 filename* parameter when required.
-    var disposition = new ContentDispositionHeaderValue("inline");
-    disposition.SetHttpFileName(photo.FileName);
-    httpContext.Response.Headers.ContentDisposition = disposition.ToString();
-
     // HEIC/HEIF cannot be natively decoded by most browsers; transcode to JPEG on the fly.
     if (transcoder.IsTranscodable(photo.FilePath))
     {
-        var jpeg = await transcoder.TranscodeToJpegAsync(photo.FilePath, ct);
+        Stream jpeg;
+        try
+        {
+            jpeg = await transcoder.TranscodeToJpegAsync(photo.FilePath, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            // Client cancelled the request; propagate so ASP.NET Core handles it normally.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to transcode {FilePath} to JPEG", photo.FilePath);
+            return Results.Problem(
+                detail: "The image could not be transcoded.",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+
+        // Set Content-Disposition only after a successful transcode.
+        var transcodedDisposition = new ContentDispositionHeaderValue("inline");
+        transcodedDisposition.SetHttpFileName(photo.FileName);
+        httpContext.Response.Headers.ContentDisposition = transcodedDisposition.ToString();
+
         return Results.Stream(jpeg, "image/jpeg");
     }
 
@@ -150,6 +165,13 @@ app.MapGet("/api/photos/{id:guid}/image", async (Guid id, HttpContext httpContex
         ".tiff" or ".tif" => "image/tiff",
         _                 => "application/octet-stream"
     };
+
+    // Set Content-Disposition: inline so the browser renders the image inline while still
+    // knowing the file's real name (e.g. when saving). SetHttpFileName handles non-ASCII
+    // names by emitting the RFC 5987 filename* parameter when required.
+    var disposition = new ContentDispositionHeaderValue("inline");
+    disposition.SetHttpFileName(photo.FileName);
+    httpContext.Response.Headers.ContentDisposition = disposition.ToString();
 
     return Results.File(photo.FilePath, contentType);
 });

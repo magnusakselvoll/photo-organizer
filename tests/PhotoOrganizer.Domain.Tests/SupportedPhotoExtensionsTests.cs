@@ -1,6 +1,6 @@
 using PhotoOrganizer.Domain;
 
-namespace PhotoOrganizer.Application.Tests;
+namespace PhotoOrganizer.Domain.Tests;
 
 /// <summary>
 /// Guards the invariant that every format the browser can display (natively or via transcoding)

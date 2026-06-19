@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using PhotoOrganizer.Application.Folders;
 using PhotoOrganizer.Application.Photos;
+using PhotoOrganizer.Domain;
+using PhotoOrganizer.Domain.Interfaces;
 
 namespace PhotoOrganizer.Server.Tests;
 
@@ -30,7 +32,9 @@ public class ApiEndpointTests
 
     private static WebApplicationFactory<Program> CreateFactory(
         IFolderService? folderService = null,
-        IPhotoService? photoService = null)
+        IPhotoService? photoService = null,
+        IPhotoRepository? photoRepository = null,
+        IImageTranscoder? imageTranscoder = null)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -41,6 +45,12 @@ public class ApiEndpointTests
 
                 if (photoService is not null)
                     Replace<IPhotoService>(services, photoService);
+
+                if (photoRepository is not null)
+                    Replace<IPhotoRepository>(services, photoRepository);
+
+                if (imageTranscoder is not null)
+                    Replace<IImageTranscoder>(services, imageTranscoder);
             });
         });
     }
@@ -178,6 +188,31 @@ public class ApiEndpointTests
         Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
+    // --- /api/photos/{id}/image (transcode failure) ---
+
+    [TestMethod]
+    public async Task GetPhotoImage_WhenTranscodeFails_Returns500()
+    {
+        var photoId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var photo = new Photo
+        {
+            Id = photoId,
+            FilePath = "/photos/test.heic",
+            FileName = "test.heic",
+            FolderType = FolderType.Originals,
+        };
+
+        var fakeRepo = new FakePhotoRepository { Photo = photo };
+        var fakeTranscoder = new FailingImageTranscoder();
+
+        await using var factory = CreateFactory(photoRepository: fakeRepo, imageTranscoder: fakeTranscoder);
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/photos/{photoId}/image");
+
+        Assert.AreEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
     // --- Fake implementations ---
 
     private sealed class FakeFolderService : IFolderService
@@ -199,5 +234,29 @@ public class ApiEndpointTests
         }
 
         public Task<PhotoDto?> GetPhotoByIdAsync(Guid id) => Task.FromResult(Photo);
+    }
+
+    private sealed class FakePhotoRepository : IPhotoRepository
+    {
+        public Photo? Photo { get; set; }
+        public long Version => 1;
+
+        public Task<IReadOnlyList<Photo>> GetAllPhotosAsync() =>
+            Task.FromResult<IReadOnlyList<Photo>>(Photo is null ? [] : [Photo]);
+
+        public Task<Photo?> GetByIdAsync(Guid id) =>
+            Task.FromResult(Photo?.Id == id ? Photo : null);
+    }
+
+    /// <summary>
+    /// A fake <see cref="IImageTranscoder"/> that always throws on <see cref="TranscodeToJpegAsync"/>,
+    /// simulating a corrupt or unreadable source file. Used to verify the endpoint returns 500.
+    /// </summary>
+    private sealed class FailingImageTranscoder : IImageTranscoder
+    {
+        public bool IsTranscodable(string filePath) => true;
+
+        public Task<Stream> TranscodeToJpegAsync(string filePath, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Simulated transcode failure");
     }
 }
